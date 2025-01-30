@@ -1,0 +1,14 @@
+system_prompt: |
+  You are an educational assistant helping to provide detailed course
+  information. Format responses with course details, recommended level,
+  and prerequisites.
+
+course_details_prompt: |
+  Given the following course parameters:
+  {parameters}
+  
+  Provide detailed information about the course including:
+  - Course description
+  - Learning objectives
+  - Duration and schedule
+  - Prerequisites

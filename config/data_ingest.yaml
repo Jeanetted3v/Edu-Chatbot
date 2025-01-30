@@ -1,0 +1,30 @@
+LLM:
+  PROVIDER: OpenAI
+  MODEL: gpt-4o-mini
+  EMBEDDING_MODEL: text-embedding-3-small
+
+# GDRIVE:
+#   CREDENTIALS_PATH: ./credentials/fogg-447610-5249b63197be.json
+
+# GDRIVE_DOC:
+#   - FILE_ID: 11pL99aBsV_SmLOv67LdMmDkE9SiExWrrB9wzP2cPfUE
+#     FILE_TYPE: sheets
+#   - FILE_ID: 1Z5ovVwlVu9ZUgeAUorTPkzBIcjm72YeR2m3SY3ktiKU
+#     FILE_TYPE: docs
+
+
+LOCAL_DOC:
+  PATHS:
+    - ./data/data_to_ingest/fogg_rag_qna.pdf
+
+CHUNKER: 
+  TOKEN_THRESHOLD: 500
+  CHUNK_SIZE: 500   # character count
+  CHUNK_OVERLAP: 100  # character overlap
+
+# Embedding configuration
+EMBEDDER:
+  SIMILARITY_METRIC: cosine
+  PERSIST_DIR: ./data/data_to_ingest/embeddings
+  COLLECTION_NAME: fogg
+  VECTOR_STORE: chromadb

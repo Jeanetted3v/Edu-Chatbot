@@ -1,0 +1,23 @@
+openai
+python-dotenv
+fastapi
+uvicorn
+pandas
+pydantic
+pyyaml
+python-json-logger
+hydra-core
+langchain
+pymongo
+chromadb
+pydantic
+pydantic-settings
+pydantic-ai[logfire]
+google-auth
+google-auth-oauthlib 
+google-auth-httplib2
+google-api-python-client
+tiktoken
+pypdf
+python-docx
+docx2txt # fallback for python-docx
