@@ -3,7 +3,7 @@ import chromadb
 from typing import Dict, Optional, List
 
 
-class Searcher:
+class HybridSearcher:
     def __init__(
         self,
         persist_directory: str = "./data/embeddings",

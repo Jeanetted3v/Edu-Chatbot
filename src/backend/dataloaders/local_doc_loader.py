@@ -25,7 +25,7 @@ class LoadedStructuredDocument:
     metadata: Dict[str, str]
 
 
-class DocLoader:
+class LocalDocLoader:
     """Loads documents of various formats (PDF, DOCX, TXT) into a unified format."""
     
     def load_document(self, file_path: str) -> Union[
@@ -230,7 +230,7 @@ def load_local_doc(
     # Load documents from configured paths
     for doc_path in cfg.LOCAL_DOC.PATHS:
         try:
-            doc_loader = DocLoader()
+            doc_loader = LocalDocLoader()
             doc = doc_loader.load_document(doc_path)
             documents.append(doc)
             logger.info(f"Successfully loaded document: {doc_path}")

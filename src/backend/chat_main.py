@@ -1,13 +1,14 @@
 """python -m src.backend.chat_main"""
 import logging
 import logfire
-import sys
 import hydra
+import asyncio
 from omegaconf import DictConfig
 import asyncio
 
 from src.backend.utils.logging import setup_logging
 from src.backend.chat.intent_classifier import IntentClassifier
+from src.backend.models.intent import IntentResult
 
 logger = logging.getLogger(__name__)
 logfire.configure(send_to_logfire='if-token-present')
@@ -17,42 +18,43 @@ class CLITester:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
         self.classifier = IntentClassifier()
-        self.conversation_history = []
+        self.message_history = []
 
-    def print_result(self, query: str, result) -> None:
+    def print_result(self, result: IntentResult) -> None:
         """Pretty print the classification result"""
         print("\n" + "="*50)
-        print(f"Query: {query}")
-        print(f"Intent: {result.intent}")
-        print(f"Parameters: {result.parameters}")
-        print(f"Is Follow-up: {result.is_followup}")
-        print(f"Missing Info: {result.missing_info}")
+        if result.missing_info:
+            print(f"Question: {result.response}")
+        else:
+            print(f"Intent: {result.intent}")
+            print(f"Parameters: {result.parameters}")
+            print(f"Response: {result.response}")
         print("="*50)
 
     async def process_query(self, query: str) -> None:
         """Process a single query"""
-        # Add to conversation history
-        self.conversation_history.append({
+        # Add user query to history
+        self.message_history.append({
             "role": "user",
             "content": query
         })
-
-        # Get classification
-        result = await self.classifier.classify(
-            query,
-            conversation_history=self.conversation_history
-        )
-
-        # Print result
-        self.print_result(query, result)
-
-        # Add simulated response to history
-        self.conversation_history.append({
+        
+        # Get classification that handles the entire conversation flow
+        result = await self.classifier.get_intent(query)
+        self.print_result(result)
+        
+        # Add assistant response to history
+        if result.missing_info:
+            response_content = result.response  # The question asking for missing info
+        else:
+            response_content = f"Intent: {result.intent}, Response: {result.response}"
+            
+        self.message_history.append({
             "role": "assistant",
-            "content": f"Processed query with intent: {result.intent}"
+            "content": response_content
         })
 
-    def run(self) -> None:
+    async def run(self) -> None:
         """Run the CLI tester"""
         print("\nWelcome to the Intent Classifier Tester!")
         print("Type 'quit' or 'exit' to end the session")
@@ -82,7 +84,7 @@ class CLITester:
                     continue
 
                 # Process the query
-                asyncio.run(self.process_query(query))
+                await self.process_query(query)
 
             except KeyboardInterrupt:
                 print("\nGoodbye!")
@@ -101,13 +103,11 @@ def main(cfg) -> None:
     logger.info("Setting up logging configuration.")
     setup_logging()
 
-    try:
+    async def async_main():
         tester = CLITester(cfg)
-        tester.run()
-    except Exception as e:
-        logger.error(f"Error running CLI tester: {e}")
-        print(f"Error running CLI tester: {e}")
-        sys.exit(1)
+        await tester.run()
+    
+    asyncio.run(async_main())
 
 
 if __name__ == "__main__":

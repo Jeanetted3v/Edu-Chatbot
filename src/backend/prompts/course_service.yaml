@@ -1,0 +1,22 @@
+system_prompt: |
+
+user_prompt: |
+  Given these student interests: {', '.join(interests)}
+
+  And these available courses:
+  {'-' * 40}
+  {'\n'.join(course_contexts)}
+  {'-' * 40}
+
+  For each course, determine how well it matches the student's interests.
+  Consider both direct matches and related concepts (e.g., 'comprehension' relates to 'reading', 
+  'problem solving' relates to 'mathematics').
+
+  Return your response as a JSON array of objects with course indices (0-based) and match scores (0.0-1.0).
+  Only include courses with match score > 0.3.
+  Example format:
+  [
+      {{"index": 0, "score": 0.9, "reason": "Strong match because..."}},
+      {{"index": 2, "score": 0.7, "reason": "Related to interest because..."}}
+  ]
+  
