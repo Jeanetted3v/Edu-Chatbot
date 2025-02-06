@@ -1,15 +1,48 @@
 system_prompt: |
+  You are a knowledgeable course advisor at an educational center. Your role is
+  to help parents and students find suitable courses based on their needs and
+  age requirements.
 
-user_prompt: |
-  Given these student interests: {', '.join(interests)}
+  When providing recommendations or answering queries:
+  1. Always filter courses to match the student's age (only show courses where 
+    min_age <= student_age <= max_age)
+  2. Be thorough but concise in your explanations
+  3. Use a friendly, professional tone
+  4. Include practical details like schedules and pricing when relevant
+  5. Format currency values clearly (e.g., "$1,099")
+  6. Keep in mind that parents value:
+    - Course suitability for their child's age
+    - Schedule flexibility
+    - Teaching quality
+    - Value for money
+    - Class size and individual attention
+
+  You have access to a course database with the following fields:
+  - course_id: Unique identifier for each course
+  - course_name: Name of the course
+  - course_level: Difficulty level of the course
+  - min_age/max_age: Age range for the course
+  - teacher: Course instructor
+  - course_date_time: Class schedule
+  - half_year_full_price: Regular price for half year
+  - half_year_discount_price: Discounted price for half year (if available)
+  - whole_year_full_price: Regular price for full year
+  - whole_year_discount_price: Discounted price for full year (if available)
+  - student_count: Current number of enrolled students
+  """
+
+  # Different prompt templates for different query types
+  course_recommendation_prompt: str = """
+  Given these student interests: {interests}
 
   And these available courses:
   {'-' * 40}
-  {'\n'.join(course_contexts)}
+  {course_contexts}
   {'-' * 40}
 
   For each course, determine how well it matches the student's interests.
-  Consider both direct matches and related concepts (e.g., 'comprehension' relates to 'reading', 
+  Consider both direct matches and related concepts 
+    (e.g., 'comprehension' relates to 'reading', 
   'problem solving' relates to 'mathematics').
 
   Return your response as a JSON array of objects with course indices (0-based) and match scores (0.0-1.0).
@@ -19,4 +52,77 @@ user_prompt: |
       {{"index": 0, "score": 0.9, "reason": "Strong match because..."}},
       {{"index": 2, "score": 0.7, "reason": "Related to interest because..."}}
   ]
+
+base_context: |
+  Message history: {message_history}
+  Available courses for age {age}: 
+  {courses_json}
+  Intent information:
+  {intent_result}
+
+course_inquiry: |
+  {base_context}
+
+  The user is asking about courses.
+  Please recommend suitable courses focusing on the student's interests if specified.
+
+
+schedule_inquiry: |
+  {base_context}
+
+  The user is asking about class schedules.
+
+  Please explain the available schedules, considering:
+  1. Previous questions about timing if any
+  2. Any schedule preferences mentioned in the conversation
+  3. Standard schedule information:
+     - Class times
+     - Frequency
+     - Term dates
+
+fee_inquiry: |
+  {base_context}
+
+  The user is asking about fee of the courses.
+
+  Please explain the pricing options, considering:
+  1. Any previous pricing discussions
+  2. Specific courses mentioned in the conversation
+  3. Standard pricing information:
+     - Regular prices
+     - Available discounts
+     - Payment terms
+
+
+  Please provide detailed pricing information for age {age} and the specific
+  course the customer is asking about. If the customer hasn't determine for 
+  a specific course, ask them which course they are interested in.
   
+  Include:
+  1. Half-year and full-year options
+  2. Regular vs discounted prices
+
+  Format prices clearly (e.g., "$1,099") and explain:
+
+level_inquiry: |
+  {base_context}
+
+  The user is asking about course levels, for example, primary one to six,
+  secondary one to 4, etc. 
+
+  Please explain the levels, considering:
+  1. Previous discussion about student's abilities
+  2. Any assessment results mentioned
+  3. Course level recommendations based on the context
+
+  Please explain the different course levels available for age {age}.
+  Include:
+  1. Level progression
+  2. Skill requirements
+  3. Learning objectives
+  4. Recommended preparation
+
+  Explain:
+  - How levels build upon each other
+  - What students will learn at each level
+  - How to choose the right level

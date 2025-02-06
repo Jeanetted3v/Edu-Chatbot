@@ -22,7 +22,3 @@ class CourseFilter(BaseModel):
     age: int
     interests: Optional[List[str]] = None
 
-
-class CourseMatch(BaseModel):
-    course_name: str
-    score: float

@@ -27,43 +27,64 @@ class LoadedStructuredDocument:
 
 class LocalDocLoader:
     """Loads documents of various formats (PDF, DOCX, TXT) into a unified format."""
-    
-    def load_document(self, file_path: str) -> Union[
-        LoadedUnstructuredDocument,
-        LoadedStructuredDocument
-    ]:
+    @staticmethod
+    def convert_excel_to_csv(excel_path: str) -> str:
         """
-        Load a document and return its contents with metadata.
+        Convert Excel file to CSV and save in the same directory
         
         Args:
-            file_path: Path to the document file
+            excel_path: Path to the Excel file
             
         Returns:
-            LoadedDocument object containing text content and metadata
-        
-        Raises:
-            ValueError: If file format is not supported
-            FileNotFoundError: If file doesn't exist
+            Path to the saved CSV file
         """
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"File not found: {file_path}")
-        
-        file_ext = os.path.splitext(file_path)[1].lower()
-        
-        if file_ext == '.pdf':
-            return self._load_pdf(file_path)
-        elif file_ext == '.docx':
-            return self._load_docx(file_path)
-        elif file_ext == '.txt':
-            return self._load_text(file_path)
-        # Structured document handlers
-        elif file_ext == '.csv':
-            return self._load_csv(file_path)
-        elif file_ext in ['.xlsx', '.xls']:
-            return self._load_excel(file_path)
-        else:
-            raise ValueError(f"Unsupported file format: {file_ext}")
+        try:
+            # Get directory and filename without extension
+            directory = os.path.dirname(excel_path)
+            base_name = os.path.splitext(os.path.basename(excel_path))[0]
+            csv_path = os.path.join(directory, f"{base_name}.csv")
+            
+            # Read Excel and save as CSV
+            df = pd.read_excel(excel_path)
+            df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+            
+            logger.info(f"Successfully converted Excel to CSV: {csv_path}")
+            return csv_path
+            
+        except Exception as e:
+            logger.error(f"Error converting Excel to CSV: {str(e)}")
+            raise
     
+    def _load_csv(self, file_path: str) -> LoadedStructuredDocument:
+        """
+        Load a CSV file into a pandas DataFrame.
+        Attempts to handle common CSV format variations.
+        """
+        metadata = {
+            'source': file_path,
+            'type': 'csv'
+        }
+
+        # Try different encodings
+        encodings = ['utf-8-sig', 'utf-8', 'latin1', 'iso-8859-1']
+        
+        for encoding in encodings:
+            try:
+                df = pd.read_csv(file_path, encoding=encoding)
+                
+                metadata.update({
+                    'encoding': encoding,
+                    'rows': str(len(df)),
+                    'columns': str(len(df.columns)),
+                    'column_names': ', '.join(df.columns.tolist())
+                })
+                
+                return LoadedStructuredDocument(content=df, metadata=metadata)
+            except UnicodeDecodeError:
+                continue
+        
+        raise ValueError(f"Could not load CSV file: {file_path}. Tried encodings: {encodings}")
+
     def _load_pdf(self, file_path: str) -> LoadedUnstructuredDocument:
         """Load a PDF document."""
         metadata = {
@@ -131,85 +152,42 @@ class LocalDocLoader:
         
         return LoadedUnstructuredDocument(content=content, metadata=metadata)
 
-    def _load_csv(self, file_path: str) -> LoadedStructuredDocument:
+    def _load_document(self, file_path: str) -> Union[
+        LoadedUnstructuredDocument,
+        LoadedStructuredDocument
+    ]:
         """
-        Load a CSV file into a pandas DataFrame.
-        Attempts to handle common CSV format variations.
-        """
-        metadata = {
-            'source': file_path,
-            'type': 'csv'
-        }
-
-        # Try different encodings and delimiters
-        encodings = ['utf-8', 'latin1', 'iso-8859-1']
-        delimiters = [',', ';', '\t']
+        Load a document and return its contents with metadata.
         
-        for encoding in encodings:
-            for delimiter in delimiters:
-                try:
-                    df = pd.read_csv(file_path, encoding=encoding, sep=delimiter)
-                    
-                    metadata.update({
-                        'encoding': encoding,
-                        'delimiter': delimiter,
-                        'rows': str(len(df)),
-                        'columns': str(len(df.columns)),
-                        'column_names': ', '.join(df.columns.tolist())
-                    })
-                    
-                    return LoadedStructuredDocument(content=df, metadata=metadata)
-                except (UnicodeDecodeError, pd.errors.EmptyDataError, pd.errors.ParserError):
-                    continue
+        Args:
+            file_path: Path to the document file
+            
+        Returns:
+            LoadedDocument object containing text content and metadata
         
-        raise ValueError(f"Could not load CSV file: {file_path}. Tried multiple encodings and delimiters.")
-
-    def _load_excel(self, file_path: str) -> LoadedStructuredDocument:
+        Raises:
+            ValueError: If file format is not supported
+            FileNotFoundError: If file doesn't exist
         """
-        Load an Excel file into a pandas DataFrame.
-        If multiple sheets exist, combines them with sheet name as prefix.
-        """
-        metadata = {
-            'source': file_path,
-            'type': 'excel'
-        }
-
-        # Read all sheets
-        excel_file = pd.ExcelFile(file_path)
-        sheet_names = excel_file.sheet_names
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
         
-        if len(sheet_names) == 1:
-            # Single sheet - load directly
-            df = pd.read_excel(file_path)
-            metadata.update({
-                'sheets': '1',
-                'sheet_name': sheet_names[0],
-                'rows': str(len(df)),
-                'columns': str(len(df.columns)),
-                'column_names': ', '.join(df.columns.tolist())
-            })
+        file_ext = os.path.splitext(file_path)[1].lower()
+        
+        if file_ext == '.pdf':
+            return self._load_pdf(file_path)
+        elif file_ext == '.docx':
+            return self._load_docx(file_path)
+        elif file_ext == '.txt':
+            return self._load_text(file_path)
+        # Structured document handlers
+        elif file_ext == '.csv':
+            return self._load_csv(file_path)
+        elif file_ext in ['.xlsx', '.xls']:
+            csv_path = self.convert_excel_to_csv(file_path)
+            return self._load_csv(csv_path)
         else:
-            # Multiple sheets - combine them
-            dfs = []
-            total_rows = 0
-            
-            for sheet in sheet_names:
-                sheet_df = pd.read_excel(file_path, sheet_name=sheet)
-                # Prefix column names with sheet name
-                sheet_df.columns = [f"{sheet}_{col}" for col in sheet_df.columns]
-                dfs.append(sheet_df)
-                total_rows += len(sheet_df)
-            
-            df = pd.concat(dfs, axis=1)
-            metadata.update({
-                'sheets': str(len(sheet_names)),
-                'sheet_names': ', '.join(sheet_names),
-                'total_rows': str(total_rows),
-                'columns': str(len(df.columns)),
-                'column_names': ', '.join(df.columns.tolist())
-            })
-
-        return LoadedStructuredDocument(content=df, metadata=metadata)
+            raise ValueError(f"Unsupported file format: {file_ext}")
 
 
 def load_local_doc(

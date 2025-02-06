@@ -1,30 +1,31 @@
 from typing import List, Optional
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class IntentType(str, Enum):
     COURSE_INQUIRY = "course_inquiry"
+    SCHEDULE_INQUIRY = "schedule_inquiry"
+    FEE_INQUIRY = "fee_inquiry"
+    LEVEL_INQUIRY = "level_inquiry"
     GENERAL_INQUIRY = "general_inquiry"
 
 
 class QueryParameters(BaseModel):
-    age: Optional[int] = Field(None, description="Student's age")
-    subject: Optional[str] = Field(None, description="Course subject")
-    student_name: Optional[str] = Field(None, description="Student's name")
-    interest: Optional[List[str]] = Field(
-        None,
-        description="Student's interests",
-        min_items=1
-    )
+    age: Optional[int]
+    school_type: Optional[str]
+    level: Optional[int]
+    subject: Optional[str]
+    english_level: Optional[str]
+    lexile_score: Optional[str]
+    current_reading: Optional[str]
+    student_name: Optional[str]
+    interest: Optional[List[str]]
+    original_query: str
 
 
 class IntentResult(BaseModel):
     intent: IntentType
     parameters: QueryParameters
     response: str
-    missing_info: List[str] = Field(
-        default_factory=list,
-        description="List of missing required information",
-        min_intems=0
-    )
+    missing_info: List[str]
