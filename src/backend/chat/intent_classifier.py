@@ -1,7 +1,6 @@
 from typing import Optional
 import logging
 from pydantic_ai import Agent
-from utils.prompt_loader import PromptLoader
 from src.backend.models.intent import IntentResult, IntentType
 from src.backend.chat.chat_history import ChatHistory
 
@@ -9,20 +8,20 @@ logger = logging.getLogger(__name__)
 
 
 class IntentClassifier:
-    def __init__(self):
-        self.prompts = PromptLoader.load_prompts('intent_classifier')
+    def __init__(self, cfg):
+        self.prompts = cfg.intent_classifier
         self.agent = Agent(
             'openai:gpt-4o-mini',
             result_type=IntentResult,
             system_prompt=self.prompts['system_prompt']
         )
 
-    async def _classify_intent(
+    async def classify_intent(
         self,
         query: str,
         message_history: str
     ) -> IntentResult:
-        logger.info(f"Processing query: {query}")
+        logger.info(f"Processing initial query: {query}")
 
         result = await self.agent.run(
             self.prompts['user_prompt'].format(
@@ -31,9 +30,7 @@ class IntentClassifier:
             )
         )
         intent_result = result.data
-
-        self.chat_history.add_turn('assistant', intent_result.response)
-        logger.info(f"Intent classification result: {result.data}")
+        logger.info(f"Intent classification result: {intent_result}")
         return result
 
     # async def get_complete_intent(

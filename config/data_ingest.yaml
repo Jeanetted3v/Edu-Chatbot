@@ -15,7 +15,9 @@ LLM:
 
 LOCAL_DOC:
   PATHS:
-    - ./data/data_to_ingest/fogg_rag_qna.pdf
+    - PATH: ./data/data_to_ingest/fogg_excel.xlsx
+      SHEET: course
+    # - ./data/data_to_ingest/fogg_rag_qna.pdf
 
 CHUNKER: 
   TOKEN_THRESHOLD: 500

@@ -1,0 +1,5 @@
+csv_path: ./data/excel_course.csv
+
+defaults:
+ - course_service
+ - intent_classifier

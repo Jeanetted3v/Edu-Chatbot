@@ -16,7 +16,6 @@ class Settings(BaseSettings):
     CONFIG_DIR: str = "../../config"
 
     OPENAI_API_KEY: str
-    OPENAI_API_VERSION: str
 
     MONGODB_URI: str
     GOOGLE_CREDENTIALS_PATH: str

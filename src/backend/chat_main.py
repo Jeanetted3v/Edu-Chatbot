@@ -7,8 +7,7 @@ from omegaconf import DictConfig
 import asyncio
 
 from src.backend.utils.logging import setup_logging
-from src.backend.chat.intent_classifier import IntentClassifier
-from src.backend.models.intent import IntentResult
+from src.backend.chat.query_handler import QueryHandler
 
 logger = logging.getLogger(__name__)
 logfire.configure(send_to_logfire='if-token-present')
@@ -17,46 +16,20 @@ logfire.configure(send_to_logfire='if-token-present')
 class CLITester:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
-        self.classifier = IntentClassifier()
+        self.query_handler = QueryHandler(cfg.csv_path, cfg)
         self.message_history = []
 
-    def print_result(self, result: IntentResult) -> None:
-        """Pretty print the classification result"""
-        print("\n" + "="*50)
-        if result.missing_info:
-            print(f"Question: {result.response}")
-        else:
-            print(f"Intent: {result.intent}")
-            print(f"Parameters: {result.parameters}")
-            print(f"Response: {result.response}")
-        print("="*50)
+    def print_conversation(self, role: str, content: str) -> None:
+        print(f"\n{role.capitalize()}: {content}")
 
     async def process_query(self, query: str) -> None:
-        """Process a single query"""
-        # Add user query to history
-        self.message_history.append({
-            "role": "user",
-            "content": query
-        })
-        
-        # Get classification that handles the entire conversation flow
-        result = await self.classifier.get_intent(query)
-        self.print_result(result)
-        
-        # Add assistant response to history
-        if result.missing_info:
-            response_content = result.response  # The question asking for missing info
-        else:
-            response_content = f"Intent: {result.intent}, Response: {result.response}"
-            
-        self.message_history.append({
-            "role": "assistant",
-            "content": response_content
-        })
+        self.print_conversation("user", query)
+        response = await self.query_handler.handle_query(query)
+        self.print_conversation("assistant", response)
 
     async def run(self) -> None:
         """Run the CLI tester"""
-        print("\nWelcome to the Intent Classifier Tester!")
+        print("\nWelcome to the Edu Chatbot Tester!")
         print("Type 'quit' or 'exit' to end the session")
         print("Type 'clear' to clear conversation history")
         print("Type 'history' to see conversation history\n")

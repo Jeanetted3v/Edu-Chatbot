@@ -4,7 +4,6 @@ import logging
 import pypdf
 import pandas as pd
 from omegaconf import DictConfig
-from docx import Document
 from dataclasses import dataclass
 
 
@@ -28,7 +27,7 @@ class LoadedStructuredDocument:
 class LocalDocLoader:
     """Loads documents of various formats (PDF, DOCX, TXT) into a unified format."""
     @staticmethod
-    def convert_excel_to_csv(excel_path: str) -> str:
+    def convert_excel_to_csv(excel_path: str, sheet_name: str = None) -> str:
         """
         Convert Excel file to CSV and save in the same directory
         
@@ -39,13 +38,14 @@ class LocalDocLoader:
             Path to the saved CSV file
         """
         try:
-            # Get directory and filename without extension
             directory = os.path.dirname(excel_path)
+            parent_directory = os.path.dirname(directory)
             base_name = os.path.splitext(os.path.basename(excel_path))[0]
-            csv_path = os.path.join(directory, f"{base_name}.csv")
+            sheet_suffix = f"_{sheet_name}" if sheet_name else ""
+            csv_path = os.path.join(
+                parent_directory, f"{base_name}{sheet_suffix}.csv")
             
-            # Read Excel and save as CSV
-            df = pd.read_excel(excel_path)
+            df = pd.read_excel(excel_path, sheet_name=sheet_name)
             df.to_csv(csv_path, index=False, encoding='utf-8-sig')
             
             logger.info(f"Successfully converted Excel to CSV: {csv_path}")
@@ -55,36 +55,6 @@ class LocalDocLoader:
             logger.error(f"Error converting Excel to CSV: {str(e)}")
             raise
     
-    def _load_csv(self, file_path: str) -> LoadedStructuredDocument:
-        """
-        Load a CSV file into a pandas DataFrame.
-        Attempts to handle common CSV format variations.
-        """
-        metadata = {
-            'source': file_path,
-            'type': 'csv'
-        }
-
-        # Try different encodings
-        encodings = ['utf-8-sig', 'utf-8', 'latin1', 'iso-8859-1']
-        
-        for encoding in encodings:
-            try:
-                df = pd.read_csv(file_path, encoding=encoding)
-                
-                metadata.update({
-                    'encoding': encoding,
-                    'rows': str(len(df)),
-                    'columns': str(len(df.columns)),
-                    'column_names': ', '.join(df.columns.tolist())
-                })
-                
-                return LoadedStructuredDocument(content=df, metadata=metadata)
-            except UnicodeDecodeError:
-                continue
-        
-        raise ValueError(f"Could not load CSV file: {file_path}. Tried encodings: {encodings}")
-
     def _load_pdf(self, file_path: str) -> LoadedUnstructuredDocument:
         """Load a PDF document."""
         metadata = {
@@ -123,36 +93,7 @@ class LocalDocLoader:
         except Exception as e:
             raise ValueError(f"Error reading PDF {file_path}: {str(e)}")
     
-    def _load_docx(self, file_path: str) -> LoadedUnstructuredDocument:
-        """Load a DOCX document."""
-        metadata = {
-            'source': file_path,
-            'type': 'docx'
-        }
-        
-        doc = Document(file_path)
-        paragraphs = [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
-        full_text = "\n\n".join(paragraphs)
-        
-        metadata['total_paragraphs'] = str(len(paragraphs))
-        
-        return LoadedUnstructuredDocument(content=full_text, metadata=metadata)
-    
-    def _load_text(self, file_path: str) -> LoadedUnstructuredDocument:
-        """Load a text document."""
-        metadata = {
-            'source': file_path,
-            'type': 'txt'
-        }
-        
-        with open(file_path, 'r', encoding='utf-8') as file:
-            content = file.read()
-            
-        metadata['file_size'] = str(os.path.getsize(file_path))
-        
-        return LoadedUnstructuredDocument(content=content, metadata=metadata)
-
-    def _load_document(self, file_path: str) -> Union[
+    def _load_document(self, file_path: str, sheet_name: str = None) -> Union[
         LoadedUnstructuredDocument,
         LoadedStructuredDocument
     ]:
@@ -176,16 +117,8 @@ class LocalDocLoader:
         
         if file_ext == '.pdf':
             return self._load_pdf(file_path)
-        elif file_ext == '.docx':
-            return self._load_docx(file_path)
-        elif file_ext == '.txt':
-            return self._load_text(file_path)
-        # Structured document handlers
-        elif file_ext == '.csv':
-            return self._load_csv(file_path)
         elif file_ext in ['.xlsx', '.xls']:
-            csv_path = self.convert_excel_to_csv(file_path)
-            return self._load_csv(csv_path)
+            self.convert_excel_to_csv(file_path, sheet_name)
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
@@ -206,12 +139,12 @@ def load_local_doc(
     documents = []
     
     # Load documents from configured paths
-    for doc_path in cfg.LOCAL_DOC.PATHS:
+    for cfg in cfg.LOCAL_DOC.PATHS:
         try:
             doc_loader = LocalDocLoader()
-            doc = doc_loader.load_document(doc_path)
+            doc = doc_loader._load_document(cfg['PATH'], cfg['SHEET'])
             documents.append(doc)
-            logger.info(f"Successfully loaded document: {doc_path}")
+            logger.info(f"Successfully loaded document: {cfg['PATH']}")
             
             # Log preview and metadata
             if isinstance(doc, LoadedUnstructuredDocument):
@@ -219,6 +152,6 @@ def load_local_doc(
                 logger.debug(f"Metadata: {doc.metadata}")
             
         except Exception as e:
-            logger.error(f"Error loading document {doc_path}: {str(e)}")
+            logger.error(f"Error loading document {cfg['PATH']}: {str(e)}")
             
     return documents

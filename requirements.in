@@ -19,5 +19,4 @@ google-auth-httplib2
 google-api-python-client
 tiktoken
 pypdf
-python-docx
-docx2txt # fallback for python-docx
+openpyxl
