@@ -17,7 +17,8 @@ venv/
 .venv/
 
 # data 
-data/**
+data/*
+!data/.gitkeep
 
 # Ignore requirements.txt file 
 requirements.txt
