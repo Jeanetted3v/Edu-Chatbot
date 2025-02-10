@@ -21,4 +21,3 @@ class Course(BaseModel):
 class CourseFilter(BaseModel):
     age: int
     interests: Optional[List[str]] = None
-

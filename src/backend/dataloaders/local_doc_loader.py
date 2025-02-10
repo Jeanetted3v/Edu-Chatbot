@@ -19,13 +19,13 @@ class LoadedUnstructuredDocument:
 
 @dataclass
 class LoadedStructuredDocument:
-    """Represents a loaded structured document (e.g., CSV, Excel) with its content and metadata."""
+    """Loaded structured document (CSV, Excel) with content & metadata."""
     content: pd.DataFrame
     metadata: Dict[str, str]
 
 
 class LocalDocLoader:
-    """Loads documents of various formats (PDF, DOCX, TXT) into a unified format."""
+    """Loads documents of various formats (PDF) into unified format."""
     @staticmethod
     def convert_excel_to_csv(excel_path: str, sheet_name: str = None) -> str:
         """
@@ -79,21 +79,24 @@ class LocalDocLoader:
                             metadata[f'page_{i}_length'] = str(chars_in_page)
                 
                     except Exception as e:
-                        logger.warning(f"Error reading page {i} of PDF {file_path}: {str(e)}")
+                        logger.warning("Error reading page {i} of "
+                                       f" PDF {file_path}: {str(e)}")
                 metadata['total_pages'] = str(len(pdf.pages))
                 
                 full_text = "\n\n".join(content)
                 
                 if not full_text.strip():
-                    raise ValueError(f"No text could be extracted from PDF {file_path}")
-                
-                return LoadedUnstructuredDocument(content=full_text, metadata=metadata)       
+                    raise ValueError("No text could be extracted from "
+                                     f"PDF {file_path}")
+                doc = LoadedUnstructuredDocument(
+                    content=full_text, metadata=metadata)
+                return doc  
         except FileNotFoundError:
             raise FileNotFoundError(f"PDF file not found: {file_path}")
         except Exception as e:
             raise ValueError(f"Error reading PDF {file_path}: {str(e)}")
     
-    def _load_document(self, file_path: str, sheet_name: str = None) -> Union[
+    def _load_document(self, cfg: DictConfig) -> Union[
         LoadedUnstructuredDocument,
         LoadedStructuredDocument
     ]:
@@ -110,6 +113,7 @@ class LocalDocLoader:
             ValueError: If file format is not supported
             FileNotFoundError: If file doesn't exist
         """
+        file_path = cfg.PATH
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
         
@@ -118,7 +122,9 @@ class LocalDocLoader:
         if file_ext == '.pdf':
             return self._load_pdf(file_path)
         elif file_ext in ['.xlsx', '.xls']:
-            self.convert_excel_to_csv(file_path, sheet_name)
+            if not hasattr(cfg, 'SHEET'):
+                raise ValueError("Sheet name is required for Excel file")
+            self.convert_excel_to_csv(file_path, cfg.SHEET)
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
@@ -142,7 +148,7 @@ def load_local_doc(
     for cfg in cfg.LOCAL_DOC.PATHS:
         try:
             doc_loader = LocalDocLoader()
-            doc = doc_loader._load_document(cfg['PATH'], cfg['SHEET'])
+            doc = doc_loader._load_document(cfg)
             documents.append(doc)
             logger.info(f"Successfully loaded document: {cfg['PATH']}")
             

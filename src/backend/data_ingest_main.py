@@ -1,6 +1,7 @@
 """To run in terminal: python -m src.backend.data_ingest_main"""
 import logging
 import hydra
+import asyncio
 from omegaconf import DictConfig
 from src.backend.utils.logging import setup_logging
 from src.backend.dataloaders.gdrive_loader import GoogleDriveLoader
@@ -38,7 +39,8 @@ def main(cfg: DictConfig) -> None:
             if local_docs:
                 pdf_docs = [
                     doc for doc in local_docs
-                    if hasattr(doc, 'doc_type') and doc.doc_type == 'pdf'
+                    if hasattr(doc, 'metadata') and
+                    doc.metadata.get('type') == 'pdf'
                 ]
                 pdfs.extend(pdf_docs)
                 logger.info(f"Found {len(pdfs)} PDF files in local documents")
@@ -50,7 +52,7 @@ def main(cfg: DictConfig) -> None:
     if pdfs:
         chunked_doc = batch_chunk_doc(cfg, pdfs)
         try:
-            embed_doc(cfg, chunked_doc)
+            asyncio.run(embed_doc(cfg, chunked_doc))
         except Exception as e:
             logger.error(f"Error during document embedding: {str(e)}")
     return None

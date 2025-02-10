@@ -1,25 +1,33 @@
 import logging
 from typing import List, Dict, Optional
 import uuid
+import os
+import json
 from omegaconf import DictConfig
+from pydantic_ai import Agent
 import chromadb
 from chromadb.config import Settings
 import chromadb.utils.embedding_functions as embedding_functions
 from utils.settings import SETTINGS
+from src.backend.models.embedding_metadata import EmbeddingMetadata
 
 logger = logging.getLogger(__name__)
 
 
 class Embedder:
-    def __init__(
-        self,
-        persist_directory: str
-    ):
+    def __init__(self, cfg, persist_directory: str):
+        os.makedirs(persist_directory, exist_ok=True)
         self.client = chromadb.PersistentClient(
             path=persist_directory,
             settings=Settings(anonymized_telemetry=False)
         )
         self.collection = None
+        self.prompts = cfg.extract_metadata
+        self.agent = Agent(
+            'openai:gpt-4o-mini',
+            result_type=EmbeddingMetadata,
+            system_prompt=self.prompts['system_prompt']
+        )
 
     def _create_embedding_function(
         self,
@@ -49,48 +57,69 @@ class Embedder:
             metadata=metadata,
             embedding_function=embedding_function
         )
+    
+    async def _extract_metadata(self, content: str) -> EmbeddingMetadata:
+        logger.info("Start Extracting metadata")
+        result = await self.agent.run(
+            self.prompts['user_prompt'].format(content=content)
+        )
+        metadata = result.data
+        logger.info(f"Extracted metadata: {metadata}")
+        return metadata
 
-    def _store_processed_documents(self, processed_docs: List[Dict]):
+    def _convert_metadata_str(self, metadata: Dict) -> Dict:
+        return {
+            key: json.dumps(value) if not isinstance(
+                value,
+                (str, int, float, bool)
+            )
+            else value
+            for key, value in metadata.items()
+        }
+
+    async def _store_processed_documents(self, processed_docs: List[Dict]):
         """
         Store processed documents in ChromaDB.
         Handles both chunked and full documents appropriately.
         """
         for doc in processed_docs:
             if doc['type'] == 'chunked':
+                chunk_metadatas = []
                 # For chunked documents, store each chunk with its embedding
-                # Use add method, upsert method might overwrite existing embeddings
+                # Use add method, upsert might overwrite existing embeddings
                 for chunk in doc['chunks']:
-                    self.collection.add(
-                        documents=[chunk['content'] for chunk in doc['chunks']],
-                        metadatas=[{
-                         **chunk['metadata'],
-                         'chunk_type': 'partial',
-                         'total_chunks': doc['num_chunks'],
-                         'doc_id': doc.get('doc_id', str(uuid.uuid4()))
-                        } for chunk in doc['chunks']],
-                        ids=[str(uuid.uuid4()) for _ in doc['chunks']]
+                    extracted_metadata = await self._extract_metadata(
+                        chunk['content']
                     )
+                    enhanced_metadata = {
+                        **chunk['metadata'],
+                        **extracted_metadata.model_dump(),
+                        'chunk_type': 'partial',
+                        'total_chunks': doc['num_chunks'],
+                        'doc_id': doc.get('doc_id', str(uuid.uuid4()))
+                    }
+                    metadata = self._convert_metadata_str(enhanced_metadata)
+                    chunk_metadatas.append(metadata)
+                    logger.info(f"Storing chunk with metadata: {metadata}")
+                self.collection.add(
+                    documents=[chunk['content'] for chunk in doc['chunks']],
+                    metadatas=chunk_metadatas,
+                    ids=[str(uuid.uuid4()) for _ in doc['chunks']]
+                )
             else:
                 # For full documents, store without embeddings
-                # Use add_documents method which doesn't generate embeddings
                 self.client.get_or_create_collection(
-                    name=f"{self.collection.name}_full",  # Separate collection for full docs
+                    name=f"{self.collection.name}_full",
                     metadata={"type": "full_documents"}
                 ).add(
                     documents=[doc['content']],
-                    metadatas=[{
-                        **doc['metadata'],
-                        'chunk_type': 'full',
-                        'total_tokens': doc['total_tokens'],
-                        'doc_id': doc.get('doc_id', str(uuid.uuid4()))
-                    }],
                     ids=[str(uuid.uuid4())]
                 )
 
 
-def embed_doc(cfg: DictConfig, processed_docs: List[Dict]) -> None:
+async def embed_doc(cfg: DictConfig, processed_docs: List[Dict]) -> None:
     logger.info("Starting document embedding process...")
-    embedder = Embedder(cfg.EMBEDDER.PERSIST_DIR)
+    embedder = Embedder(cfg, cfg.EMBEDDER.PERSIST_DIR)
     embedding_fn = embedder._create_embedding_function(
         provider=cfg.LLM.PROVIDER,
         model_name=cfg.LLM.EMBEDDING_MODEL,
@@ -109,7 +138,7 @@ def embed_doc(cfg: DictConfig, processed_docs: List[Dict]) -> None:
     logger.info(f"Processing {len(processed_docs)} documents"
                 f"with total {total_chunks} chunks")
     try:
-        embedder._store_processed_documents(processed_docs)
+        await embedder._store_processed_documents(processed_docs)
         
         # Verify embeddings by checking collection count
         collection_count = embedder.collection.count()

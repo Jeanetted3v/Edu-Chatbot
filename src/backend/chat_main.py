@@ -17,7 +17,6 @@ class CLITester:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
         self.query_handler = QueryHandler(cfg.csv_path, cfg)
-        self.message_history = []
 
     def print_conversation(self, role: str, content: str) -> None:
         print(f"\n{role.capitalize()}: {content}")
@@ -31,8 +30,6 @@ class CLITester:
         """Run the CLI tester"""
         print("\nWelcome to the Edu Chatbot Tester!")
         print("Type 'quit' or 'exit' to end the session")
-        print("Type 'clear' to clear conversation history")
-        print("Type 'history' to see conversation history\n")
 
         while True:
             try:
@@ -41,18 +38,6 @@ class CLITester:
                 if query.lower() in ['quit', 'exit']:
                     print("Goodbye!")
                     break
-                
-                elif query.lower() == 'clear':
-                    self.conversation_history = []
-                    print("Conversation history cleared!")
-                    continue
-                
-                elif query.lower() == 'history':
-                    print("\nConversation History:")
-                    for msg in self.conversation_history:
-                        print(f"{msg['role']}: {msg['content']}")
-                    continue
-
                 elif not query:
                     continue
 

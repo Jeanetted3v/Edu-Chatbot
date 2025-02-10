@@ -15,18 +15,21 @@ LLM:
 
 LOCAL_DOC:
   PATHS:
-    - PATH: ./data/data_to_ingest/fogg_excel.xlsx
+    - PATH: ./data/data_to_ingest/excel.xlsx
       SHEET: course
-    # - ./data/data_to_ingest/fogg_rag_qna.pdf
+    - PATH: ./data/data_to_ingest/rag_qna.pdf
 
 CHUNKER: 
-  TOKEN_THRESHOLD: 500
+  TOKEN_THRESHOLD: 500  # switch between RAG and long-context, set low for testing RAG
   CHUNK_SIZE: 500   # character count
   CHUNK_OVERLAP: 100  # character overlap
 
 # Embedding configuration
 EMBEDDER:
   SIMILARITY_METRIC: cosine
-  PERSIST_DIR: ./data/data_to_ingest/embeddings
+  PERSIST_DIR: ./data/embeddings
   COLLECTION_NAME: fogg
   VECTOR_STORE: chromadb
+
+defaults:
+  - extract_metadata
