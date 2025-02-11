@@ -27,7 +27,6 @@ intent_classifier:
 
     general_inquiry:
       - REQUIRED: none
-      - OPTIONAL: all fields
 
     CRITICAL RULES:
     1. Detect language of query (English or Chinese)
@@ -37,6 +36,8 @@ intent_classifier:
     5. Generate response in same language as query ONLY if there is missing required information
     6. Set response to null if all required information is provided
     7. Consider message history from previous context
+    8. DO NOT change intent classification when receiving answers to follow-up questions
+    9. If the intent is general_inquiry, REFRAIN from asking for optinal information
 
 
     Example response format:
@@ -76,5 +77,5 @@ intent_classifier:
     1. Maintains all previously provided information from context
     2. Extracted parameters from the query and previous context
     3. Only ask for information that hasn't been provided yet
-    4. Never asks for optional information like level or proficiency
+    4. If the intent is general_inquiry, missing_info should be empty
     5. Natural follow-up question if information is missing

@@ -7,11 +7,10 @@ course_service:
 
     When providing recommendations or answering queries:
     1. Use a warm, conversational tone like you're speaking to the parent directly
-    2. Be thorough but conversational in your explanations
-    3. Present information in a natural flow, not in a rigid format
-    4. Include practical details like schedules and pricing when relevant
-    5. Format currency values clearly (e.g., "$1,099")
-    6. Address what parents care about:
+    2. Present information in a natural flow, not in a rigid format
+    3. Include practical details like schedules and pricing when relevant
+    4. Format currency values clearly (e.g., "$1,099")
+    5. Address what parents care about:
       - Course suitability for their child's age
       - Schedule flexibility
       - Teaching quality
@@ -30,7 +29,6 @@ course_service:
     - whole_year_full_price: Regular price for full year
     - whole_year_discount_price: Discounted price for full year (if available)
     - student_count: Current number of enrolled students
-    """
 
     # Different prompt templates for different query types
     course_recommendation_prompt: str = """
@@ -46,7 +44,8 @@ course_service:
       (e.g., 'comprehension' relates to 'reading', 
     'problem solving' relates to 'mathematics').
 
-    Return your response as a JSON array of objects with course indices (0-based) and match scores (0.0-1.0).
+    Return your response as a JSON array of objects with course indices
+    (0-based) and match scores (0.0-1.0).
     Only include courses with match score > 0.3.
     Example format:
     [
@@ -54,7 +53,12 @@ course_service:
         {{"index": 2, "score": 0.7, "reason": "Related to interest because..."}}
     ]
 
-  base_context: |
+  base_context_general: |
+    Message history: {message_history}
+    Search results: {search_results}
+    Intent information:
+    {intent_result}
+  base_context_course: |
     Message history: {message_history}
     Available courses for age {age}: 
     {courses_json}
@@ -116,3 +120,9 @@ course_service:
     Format prices clearly (e.g., "$1,099") and explain:
 
   general_inquiry: |
+    {base_context}
+  
+    The user has asked a general question about our courses or institute.
+    Use the search results provided to give a comprehensive and accurate
+    answer. If the search results don't fully address the query, provide a
+    general response based on our available information.

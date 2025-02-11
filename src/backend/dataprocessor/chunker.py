@@ -136,9 +136,9 @@ def batch_chunk_doc(
 ) -> List[Dict]:
     """Process multiple documents."""
     chunker = Chunker(
-        token_threshold=cfg.CHUNKER.TOKEN_THRESHOLD,
-        chunk_size=cfg.CHUNKER.CHUNK_SIZE,
-        chunk_overlap=cfg.CHUNKER.CHUNK_OVERLAP
+        token_threshold=cfg.chunker.token_threshold,
+        chunk_size=cfg.chunker.chunk_size,
+        chunk_overlap=cfg.chunker.chunk_overlap
     )
     chunked_doc = []
     for doc in documents:
@@ -150,7 +150,7 @@ def batch_chunk_doc(
             metadata = {}
         chunked_doc.append(chunker._chunk_single_doc(
                                         text,
-                                        cfg.LLM.MODEL,
+                                        cfg.llm.model,
                                         metadata
                                         ))
     logger.info(f"Processed {len(chunked_doc)} documents.")

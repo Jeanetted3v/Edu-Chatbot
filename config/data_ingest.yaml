@@ -1,35 +1,33 @@
-LLM:
-  PROVIDER: OpenAI
-  MODEL: gpt-4o-mini
-  EMBEDDING_MODEL: text-embedding-3-small
+llm:
+  provider: OpenAI
+  model: gpt-4o-mini
+  embedding_model: text-embedding-3-small
 
-# GDRIVE:
-#   CREDENTIALS_PATH: ./credentials/fogg-447610-5249b63197be.json
+gdrive:
+  credentials_path: ./credentials/fogg-447610-5249b63197be.json
 
-# GDRIVE_DOC:
-#   - FILE_ID: 11pL99aBsV_SmLOv67LdMmDkE9SiExWrrB9wzP2cPfUE
-#     FILE_TYPE: sheets
-#   - FILE_ID: 1Z5ovVwlVu9ZUgeAUorTPkzBIcjm72YeR2m3SY3ktiKU
-#     FILE_TYPE: docs
+# gdrive_doc:
+#   - file_id: 11pL99aBsV_SmLOv67LdMmDkE9SiExWrrB9wzP2cPfUE
+#     file_type: sheets
+#   - file_id: 1Z5ovVwlVu9ZUgeAUorTPkzBIcjm72YeR2m3SY3ktiKU
+#     file_type: docs
 
+local_doc:
+  paths:
+    - path: ./data/data_to_ingest/excel.xlsx
+      sheet: course
+    - path: ./data/data_to_ingest/rag_qna.pdf
 
-LOCAL_DOC:
-  PATHS:
-    - PATH: ./data/data_to_ingest/excel.xlsx
-      SHEET: course
-    - PATH: ./data/data_to_ingest/rag_qna.pdf
+chunker:
+  token_threshold: 500  # switch between RAG and long-context, set low for testing RAG
+  chunk_size: 500   # character count
+  chunk_overlap: 100  # character overlap
 
-CHUNKER: 
-  TOKEN_THRESHOLD: 500  # switch between RAG and long-context, set low for testing RAG
-  CHUNK_SIZE: 500   # character count
-  CHUNK_OVERLAP: 100  # character overlap
-
-# Embedding configuration
-EMBEDDER:
-  SIMILARITY_METRIC: cosine
-  PERSIST_DIR: ./data/embeddings
-  COLLECTION_NAME: fogg
-  VECTOR_STORE: chromadb
+embedder:
+  similarity_metric: cosine  # cosine(default), L2, ip(Inner Product)
+  persist_dir: ./data/embeddings
+  collection: fogg
+  vector_store: chromadb
 
 defaults:
   - extract_metadata

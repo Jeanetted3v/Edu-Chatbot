@@ -113,7 +113,7 @@ class LocalDocLoader:
             ValueError: If file format is not supported
             FileNotFoundError: If file doesn't exist
         """
-        file_path = cfg.PATH
+        file_path = cfg.path
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
         
@@ -122,9 +122,9 @@ class LocalDocLoader:
         if file_ext == '.pdf':
             return self._load_pdf(file_path)
         elif file_ext in ['.xlsx', '.xls']:
-            if not hasattr(cfg, 'SHEET'):
+            if not hasattr(cfg, 'sheet'):
                 raise ValueError("Sheet name is required for Excel file")
-            self.convert_excel_to_csv(file_path, cfg.SHEET)
+            self.convert_excel_to_csv(file_path, cfg.sheet)
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
@@ -145,12 +145,12 @@ def load_local_doc(
     documents = []
     
     # Load documents from configured paths
-    for cfg in cfg.LOCAL_DOC.PATHS:
+    for cfg in cfg.local_doc.paths:
         try:
             doc_loader = LocalDocLoader()
             doc = doc_loader._load_document(cfg)
             documents.append(doc)
-            logger.info(f"Successfully loaded document: {cfg['PATH']}")
+            logger.info(f"Successfully loaded document: {cfg['path']}")
             
             # Log preview and metadata
             if isinstance(doc, LoadedUnstructuredDocument):
@@ -158,6 +158,6 @@ def load_local_doc(
                 logger.debug(f"Metadata: {doc.metadata}")
             
         except Exception as e:
-            logger.error(f"Error loading document {cfg['PATH']}: {str(e)}")
+            logger.error(f"Error loading document {cfg['path']}: {str(e)}")
             
     return documents

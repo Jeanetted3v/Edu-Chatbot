@@ -119,17 +119,18 @@ class Embedder:
 
 async def embed_doc(cfg: DictConfig, processed_docs: List[Dict]) -> None:
     logger.info("Starting document embedding process...")
-    embedder = Embedder(cfg, cfg.EMBEDDER.PERSIST_DIR)
+    embedder = Embedder(cfg, cfg.embedder.persist_dir)
     embedding_fn = embedder._create_embedding_function(
-        provider=cfg.LLM.PROVIDER,
-        model_name=cfg.LLM.EMBEDDING_MODEL,
+        provider=cfg.llm.provider,
+        model_name=cfg.llm.embedding_model,
         api_key=SETTINGS.OPENAI_API_KEY
     )
     embedder.collection = embedder._create_collection(
-        collection_name=cfg.EMBEDDER.COLLECTION_NAME,
-        similarity_metric=cfg.EMBEDDER.SIMILARITY_METRIC,
+        collection_name=cfg.embedder.collection,
+        similarity_metric=cfg.embedder.similarity_metric,
         embedding_function=embedding_fn
     )
+    logger.info(f"Created Collection: {embedder.collection.name}")
 
     total_chunks = sum(
         len(doc['chunks']) if doc['type'] == 'chunked' else 1

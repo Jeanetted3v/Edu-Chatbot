@@ -10,20 +10,21 @@ from src.backend.dataprocessor.chunker import batch_chunk_doc
 from src.backend.dataprocessor.embedder import embed_doc
 
 
+logger = logging.getLogger(__name__)
+logger.info("Setting up logging configuration.")
+setup_logging()
+
+
 @hydra.main(
     version_base=None,
     config_path="../../config",
     config_name="data_ingest")
 def main(cfg: DictConfig) -> None:
-    logger = logging.getLogger(__name__)
-    logger.info("Setting up logging configuration.")
-    setup_logging()
-
     pdfs = []
-    if hasattr(cfg, 'GDRIVE_DOC') and cfg.GDRIVE_DOC:
+    if hasattr(cfg, 'gdrive_doc') and cfg.gdrive_doc:
         try:
             gdrive_loader = GoogleDriveLoader(
-                credentials_path=cfg.GDRIVE.CREDENTIALS_PATH,
+                credentials_path=cfg.gdrive.credentials_path,
             )
             gdrive_docs = gdrive_loader.load_documents(cfg)
             pdfs.extend([
@@ -33,7 +34,7 @@ def main(cfg: DictConfig) -> None:
         except Exception as e:
             logger.error(f"Error initializing Google Drive loader: {str(e)}")
 
-    if hasattr(cfg, 'LOCAL_DOC') and cfg.LOCAL_DOC:
+    if hasattr(cfg, 'local_doc') and cfg.local_doc:
         try:
             local_docs = load_local_doc(cfg)
             if local_docs:

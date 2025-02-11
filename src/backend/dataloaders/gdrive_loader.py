@@ -327,20 +327,20 @@ class GoogleDriveLoader:
             List of loaded documents
         """
         documents = []
-        for doc_cfg in cfg.GDRIVE_DOC:
+        for doc_cfg in cfg.grive_doc:
             try:
                 docs = self._load_document(
-                    file_id=doc_cfg['FILE_ID'],
-                    file_type=doc_cfg['FILE_TYPE']
+                    file_id=doc_cfg['file_id'],
+                    file_type=doc_cfg['file_type']
                 )
                 documents.extend(docs)
                 logger.info(
                     f"Successfully loaded Google Drive document: "
-                    f"{doc_cfg['FILE_ID']} ({doc_cfg['FILE_TYPE']})"
+                    f"{doc_cfg['file_id']} ({doc_cfg['file_type']})"
                 )
             except Exception as e:
                 logger.error(
                     f"Error loading Google Drive document "
-                    f"{doc_cfg['FILE_ID']}: {str(e)}"
+                    f"{doc_cfg['file_id']}: {str(e)}"
                 )
         return documents

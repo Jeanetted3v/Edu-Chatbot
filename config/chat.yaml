@@ -1,5 +1,18 @@
 csv_path: ./data/excel_course.csv
 
+hybrid_retriever:
+  semantic_weight: 0.7
+  keyword_weight: 0.3
+  top_k: 5
+  persist_dir: ./data/embeddings
+  collection: fogg
+
+llm:
+  provider: OpenAI
+  model: gpt-4o-mini
+  embedding_model: text-embedding-3-small
+
 defaults:
- - course_service
- - intent_classifier
+  - _self_ 
+  - course_service
+  - intent_classifier

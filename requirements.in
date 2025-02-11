@@ -20,3 +20,4 @@ google-api-python-client
 tiktoken
 pypdf
 openpyxl
+rank-bm25

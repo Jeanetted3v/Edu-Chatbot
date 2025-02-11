@@ -1,4 +1,6 @@
-"""python -m src.backend.chat_main"""
+"""To interact with this chatbot via terminal,
+run: python -m src.backend.chat_main
+"""
 import logging
 import logfire
 import hydra
@@ -10,6 +12,8 @@ from src.backend.utils.logging import setup_logging
 from src.backend.chat.query_handler import QueryHandler
 
 logger = logging.getLogger(__name__)
+logger.info("Setting up logging configuration.")
+setup_logging()
 logfire.configure(send_to_logfire='if-token-present')
 
 
@@ -57,10 +61,7 @@ class CLITester:
     config_path="../../config",
     config_name="chat")
 def main(cfg) -> None:
-    logger = logging.getLogger(__name__)
-    logger.info("Setting up logging configuration.")
-    setup_logging()
-
+    
     async def async_main():
         tester = CLITester(cfg)
         await tester.run()
