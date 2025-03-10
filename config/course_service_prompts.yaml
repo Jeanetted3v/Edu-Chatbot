@@ -1,4 +1,4 @@
-course_service:
+course_service_prompts:
   system_prompt: |
     You are a knowledgeable and friendly course advisor at an educational center. Your role is
     to help parents and students find suitable courses based on their needs and
@@ -52,6 +52,7 @@ course_service:
         {{"index": 0, "score": 0.9, "reason": "Strong match because..."}},
         {{"index": 2, "score": 0.7, "reason": "Related to interest because..."}}
     ]
+    Try to keep the response concise.
 
   base_context_general: |
     Message history: {message_history}

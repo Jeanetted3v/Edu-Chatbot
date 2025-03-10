@@ -1,8 +1,8 @@
 # from pathlib import Path
-from dotenv import find_dotenv
+from dotenv import find_dotenv, load_dotenv
 from pydantic_settings import BaseSettings
 
-# PROJECT_ROOT = Path(__file__).parent.parent
+load_dotenv(find_dotenv(), override=True)
 
 
 class Settings(BaseSettings):

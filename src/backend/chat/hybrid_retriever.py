@@ -15,22 +15,20 @@ class SearchResult(BaseModel):
 
 
 class HybridRetriever:
-    def __init__(self, cfg: Dict, persist_dir: str, collection: str):
+    def __init__(self, cfg: Dict):
+        self.cfg = cfg
         self.client = chromadb.PersistentClient(
-            path=persist_dir,
+            path=self.cfg.hybrid_retriever.persist_dir,
             settings=Settings(anonymized_telemetry=False)
         )
         self.embedding_function = embedding_functions.OpenAIEmbeddingFunction(
             api_key=SETTINGS.OPENAI_API_KEY,
-            model_name=cfg.llm.embedding_model
+            model_name=self.cfg.llm.embedding_model
         )
         self.collection = self.client.get_collection(
-            name=collection,
+            name=self.cfg.hybrid_retriever.collection,
             embedding_function=self.embedding_function
         )
-        self.semantic_weight = cfg.hybrid_retriever.semantic_weight
-        self.keyword_weight = cfg.hybrid_retriever.keyword_weight
-        self.top_k = cfg.hybrid_retriever.top_k
         
     def _normalize_scores(self, scores: List[float]) -> List[float]:
         """Min-max normalization of scores"""
@@ -82,7 +80,7 @@ class HybridRetriever:
         # Get semantic search results with scores
         results = self.collection.query(
             query_texts=[query],
-            n_results=self.top_k,
+            n_results=self.cfg.hybrid_retriever.top_k,
             where=filter_conditions,
             include=['documents', 'metadatas', 'distances']
         )
@@ -100,7 +98,7 @@ class HybridRetriever:
         
         # Combine scores
         combined_scores = [
-            (self.semantic_weight * ss + self.keyword_weight * ks)
+            (self.cfg.hybrid_retriever.semantic_weight * ss + self.cfg.hybrid_retriever.keyword_weight * ks)
             for ss, ks in zip(semantic_scores, keyword_scores)
         ]
         

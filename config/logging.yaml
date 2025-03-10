@@ -17,7 +17,7 @@ formatters:
 handlers:
   console:
     class: logging.StreamHandler
-    level: INFO
+    level: DEBUG
     formatter: json
 
   debug_file_handler:

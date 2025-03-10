@@ -12,7 +12,28 @@ llm:
   model: gpt-4o-mini
   embedding_model: text-embedding-3-small
 
+human_agent:
+  sentiment_threshold: 0.4
+  confidence_threshold: 0.7
+
+msg_analyzer:
+  analysis_interval: 5
+  min_message_length: 10
+  trigger_patterns:
+    urgency: '\b(urgent|asap|emergency|immediately)\b'
+    frustration: '\b(frustrated?|annoyed|angry|upset)\b'
+    complaint: '\b(terrible|horrible|awful|worst|bad|poor)\b'
+    escalation: '\b(supervisor|manager|complaint|escalate)\b'
+
+sentiment_analyzer:
+  provider: vader
+  llm_validate_threshold: 0.3  # If using LLM validation
+  use_llm_validation: false
+  default_score: 0.7
+
 defaults:
   - _self_ 
-  - course_service
-  - intent_classifier
+  - course_service_prompts
+  - intent_classifier_prompts
+  - sentiment_analyzer_prompts
+  - human_agent_prompts

@@ -3,21 +3,17 @@ import pandas as pd
 import logging
 from src.backend.utils.llm import LLM
 from src.backend.models.intent import IntentResult, IntentType
-from src.backend.chat.hybrid_retriever import HybridRetriever
 
 logger = logging.getLogger(__name__)
 
 
 class CourseService:
-    def __init__(self, csv_path: str, cfg: Dict):
-        self.df = pd.read_csv(csv_path, encoding='utf-8-sig')
-        self.prompts = cfg.course_service
+    def __init__(self, services):
+        self.services = services
+        self.cfg = services.cfg
+        self.df = pd.read_csv(self.cfg.csv_path, encoding='utf-8-sig')
+        self.prompts = self.cfg.course_service_prompts
         self.llm = LLM()
-        self.hybrid_retriever = HybridRetriever(
-            cfg,
-            cfg.hybrid_retriever.persist_dir,
-            cfg.hybrid_retriever.collection
-        )
 
     def _get_available_courses(self, age: int) -> str:
         """Get age-appropriate courses as JSON string"""
@@ -37,10 +33,10 @@ class CourseService:
     ) -> str:
         try:
             if intent_result.intent == IntentType.GENERAL_INQUIRY:
-                search_results = await self.hybrid_retriever.search(
+                search_results = await self.services.hybrid_retriever.search(
                     intent_result.parameters.original_query
                 )
-                search_context = self.hybrid_retriever.format_search_results(
+                search_context = self.services.hybrid_retriever.format_search_results(
                     search_results)
                 base_context = self.prompts['base_context_general'].format(
                     message_history=message_history,
@@ -74,7 +70,7 @@ class CourseService:
                 user_prompt = self.prompts[prompt_key].format(
                     base_context=base_context)
             
-            response = await self.llm.llm(
+            response = await self.llm.generate(
                 self.prompts.system_prompt,
                 user_prompt
             )

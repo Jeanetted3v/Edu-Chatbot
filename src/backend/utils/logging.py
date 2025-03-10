@@ -4,7 +4,7 @@ import logging.config
 import os
 import sys
 
-import yaml  # type: ignore
+import yaml
 from pythonjsonlogger import jsonlogger
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -30,7 +30,8 @@ def setup_logging(
         # Only add encoding to RotatingFileHandler
         if 'handlers' in log_config:
             for handler in log_config['handlers'].values():
-                if handler['class'] == 'logging.handlers.RotatingFileHandler' and 'encoding' not in handler:
+                if (handler['class'] == 'logging.handlers.RotatingFileHandler'
+                        and 'encoding' not in handler):
                     handler['encoding'] = 'utf-8'
                     
         logging.config.dictConfig(log_config)

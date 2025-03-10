@@ -1,5 +1,6 @@
+"""Plain Vanilla OpenAI API Wrapper for LLM"""
 from src.backend.utils.settings import SETTINGS
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
 
 
 class LLM():
@@ -7,7 +8,7 @@ class LLM():
         self.openai_api_key = SETTINGS.OPENAI_API_KEY
         self.client = AsyncOpenAI(api_key=self.openai_api_key)
 
-    async def llm(
+    async def generate(
         self,
         system_prompt: str,
         user_prompt: str,

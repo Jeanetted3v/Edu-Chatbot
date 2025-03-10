@@ -21,3 +21,6 @@ tiktoken
 pypdf
 openpyxl
 rank-bm25
+nltk
+motor
+vaderSentiment

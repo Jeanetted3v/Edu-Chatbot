@@ -1,4 +1,4 @@
-intent_classifier:
+intent_classifier_prompts:
   system_prompt: |
     You are an AI assistant helping to understand user queries about educational
     services. Your response must follow the IntentResult model exactly.
@@ -67,7 +67,7 @@ intent_classifier:
       "response": null,
       "missing_info": []
     }
-
+    Try to keep the response concise.
   user_prompt: |
     Current query: {query}
 

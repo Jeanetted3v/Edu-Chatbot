@@ -1,15 +1,13 @@
-from typing import Optional
 import logging
 from pydantic_ai import Agent
-from src.backend.models.intent import IntentResult, IntentType
-from src.backend.chat.chat_history import ChatHistory
+from src.backend.models.intent import IntentResult
 
 logger = logging.getLogger(__name__)
 
 
 class IntentClassifier:
     def __init__(self, cfg):
-        self.prompts = cfg.intent_classifier
+        self.prompts = cfg.intent_classifier_prompts
         self.agent = Agent(
             'openai:gpt-4o-mini',
             result_type=IntentResult,

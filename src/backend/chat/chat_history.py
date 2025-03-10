@@ -1,76 +1,151 @@
 import logging
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Optional
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import DESCENDING
+from src.backend.models.human_agent import ChatTurn
 
 
 logger = logging.getLogger(__name__)
 
 
 class ChatHistory:
-    def __init__(self, max_turns_for_prompt: int = 30):
+    def __init__(
+        self,
+        mongo_client: AsyncIOMotorClient,
+        session_id: str,
+        customer_id: str,
+        max_turns_for_prompt: int = 30
+    ):
+        self.db = mongo_client.fogg_db
+        self.collection = self.db.chat_history
+        self.session_id = session_id
+        self.customer_id = customer_id
         self.conversation_turns = []
         self.max_turns_for_prompt = max_turns_for_prompt
         self._last_processed_timestamp = None  # Track last processed message
 
-    def add_turn(self, role: str, content: str) -> None:
+    async def add_turn(
+        self,
+        role: str,
+        content: str,
+        metadata: Optional[Dict] = None
+    ) -> None:
         """Add a turn to conversation history with full metadata for MongoDB"""
-        self.conversation_turns.append({
-            'role': role,
-            'content': content,
-            'timestamp': datetime.now().isoformat()
-        })
+        timestamp = datetime.now()
+        try:
+            turn = ChatTurn(
+                role=role,
+                content=content,
+                timestamp=timestamp,
+                customer_id=self.customer_id,
+                session_id=self.session_id,
+                metadata=metadata
+            )
+            self.conversation_turns.append(turn)
+            turn_dict = (
+                turn.dict()
+                if hasattr(turn, 'dict')
+                else turn.model_dump()
+            )
+            result = await self.collection.insert_one(turn_dict)
+            logger.info(f"Added message with ID: {result.inserted_id}")
+            
+        except Exception as e:
+            logger.error(f"Error adding turn to history: {str(e)}")
 
-    def format_history_for_prompt(self) -> str:
+    async def format_history_for_prompt(self) -> str:
         """Format last N turns in simple format for prompt to save tokens"""
-        recent_turns = self.conversation_turns[-self.max_turns_for_prompt:]
-        return "\n".join(
-            f"{turn['role'].capitalize()}: {turn['content']}"
-            for turn in recent_turns
-        )
+        try:
+            cursor = self.collection.find({
+                'customer_id': self.customer_id,
+                'session_id': self.session_id
+            }).sort('timestamp', DESCENDING).limit(self.max_turns_for_prompt)
+            
+            turns = await cursor.to_list(length=self.max_turns_for_prompt)
+            
+            if not turns:
+                logger.info("No messages found with customer_id, session_id. "
+                            "Trying without filters...")
+                cursor = self.collection.find({}).sort(
+                    'timestamp', DESCENDING
+                ).limit(self.max_turns_for_prompt)
+                turns = await cursor.to_list(length=self.max_turns_for_prompt)
+            
+            # Reverse to get chronological order
+            turns.reverse()
+            
+            # Format the turns into a string
+            formatted_history = "\n".join(
+                f"{turn['role'].capitalize()}: {turn['content']}"
+                for turn in turns
+            )
+            logger.info(f"Successfully retrieved {len(turns)} messages")
+            logger.info(f"Formatted history: {formatted_history}")
+            return formatted_history
+        except Exception as e:
+            error_msg = f"Error retrieving conversation history: {str(e)}"
+            logger.error(error_msg)
+            return error_msg
+    
+    async def get_recent_turns(self, limit: int = 10) -> List[ChatTurn]:
+        """Get recent turns from MongoDB"""
+        try:
+            # Try with customer_id and session_id first
+            cursor = self.collection.find({
+                'customer_id': self.customer_id,
+                'session_id': self.session_id
+            }).sort('timestamp', DESCENDING).limit(limit)
+            
+            turns = await cursor.to_list(length=limit)
+            
+            # If no results with both filters, try with just customer_id
+            if not turns:
+                cursor = self.collection.find({
+                    'customer_id': self.customer_id
+                }).sort('timestamp', DESCENDING).limit(limit)
+                turns = await cursor.to_list(length=limit)
+            
+            # If still no results, fall back to no filters (for backward compatibility)
+            if not turns:
+                cursor = self.collection.find({}).sort('timestamp', DESCENDING).limit(limit)
+                turns = await cursor.to_list(length=limit)
+            return turns
+            
+        except Exception as e:
+            logger.error(f"Error getting recent turns: {str(e)}")
+            return []
 
     def get_full_history(self) -> List[Dict]:
         """Get full conversation history for MongoDB storage"""
         return self.conversation_turns
-    
-    def _has_similar_message(self, role: str, content: str, similarity_threshold: float = 0.9) -> bool:
-            """Check if a similar message already exists using fuzzy matching"""
-            from difflib import SequenceMatcher
-            
-            content = content.strip()
-            for turn in self.conversation_turns:
-                if turn['role'] == role:
-                    similarity = SequenceMatcher(None, turn['content'].strip(), content).ratio()
-                    if similarity >= similarity_threshold:
-                        return True
-            return False
-
-    def process_msg_history(self, message_history: List[Dict]) -> None:
-        """Process and add message history to conversation turns"""
-        if not message_history:
-            return
-            
-        for msg in message_history:
-            timestamp = getattr(msg, 'timestamp', datetime.now().isoformat())
-            # Skip if we've already processed this message
-            if self._last_processed_timestamp and timestamp <= self._last_processed_timestamp:
-                continue
-            if hasattr(msg, 'role') and msg.role == 'user':
-                content = msg.content
-                if "Current query: " in content:
-                    content = content.split("Current query: ")[-1].split("\n")[0]
-                # Use fuzzy matching to avoid duplicates
-                if not self._has_similar_message('user', content):
-                    self.add_turn('user', content.strip())
-            elif hasattr(msg, 'parts'):
-                # Handle response messages
-                response_content = next(
-                    (part.content for part in msg.parts 
-                     if part.part_kind == 'text'),
-                    None
-                )
-                if response_content and not self._has_similar_message('assistant', response_content):
-                    self.add_turn('assistant', response_content.strip())
-                
-                self._last_processed_timestamp = timestamp
         
+    async def get_transfer_context(self) -> Dict:
+        """Get context information when transferring to human agent
+        
+        Being called in HumanAgentHandler.transfer_to_human method
+        """
+        try:
+            recent_turns = await self.get_recent_turns(10)
+            sentiments = []
+            for turn in recent_turns:
+                metadata = turn.get('metadata')
+                if metadata is not None:
+                    sentiment_score = metadata.get('sentiment_score')
+                    if sentiment_score is not None:
+                        sentiments.append(sentiment_score)
+            logger.info(f"Sentiment from get_transfer_context: {sentiments}")
+            transfer_context = {
+                'recent_conversation': recent_turns,
+                'sentiment_trend': sentiments,
+                'total_turns': len(recent_turns),
+                'conversation_start': (
+                    recent_turns[0]['timestamp'] if recent_turns else None
+                )
+            }
+            logger.info(f"[ChatHistory] Transfer Context: {transfer_context}")
+            return transfer_context
+        except Exception as e:
+            logger.error(f"Error getting transfer context: {str(e)}")
+            return {}
         
