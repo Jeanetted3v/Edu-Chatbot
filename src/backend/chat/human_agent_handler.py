@@ -3,13 +3,12 @@ Sesstion management, agent switching, toggle(transfer) management
 """
 from typing import Dict
 import logging
+import datetime
 from src.backend.models.human_agent import (
     AgentType,
     ToggleReason,
-    AgentDecision
-
 )
-import datetime
+from src.backend.chat.chat_history import ChatHistory
 from src.backend.utils.llm import LLM
 
 logger = logging.getLogger(__name__)
@@ -44,6 +43,7 @@ class HumanAgentHandler:
         reason: ToggleReason
     ) -> bool:
         """Transfer chat to human agent"""
+        logger.info("Transfer chat to Human agent...")
         session = self.services.active_sessions.get(session_id)
         if not session:
             logger.error(f"Session {session_id} not found")
@@ -51,8 +51,6 @@ class HumanAgentHandler:
         chat_history = await self.services.get_chat_history(
             session_id, session.customer_id)
         transfer_context = await chat_history.get_transfer_context()
-        logger.info(f"[HumanAgentHandler] Transfer context: {transfer_context}")
-        # Record transfer
         await chat_history.add_turn(
             'system',
             "Chat transferred to human agent",
@@ -66,27 +64,28 @@ class HumanAgentHandler:
 
     async def transfer_to_bot(
         self,
-        session_id: str
-    ) -> bool:
+        session_id: str,
+        chat_history: ChatHistory
+    ) -> str:
         """Transfer chat back to bot agent."""
+        logger.info("Transfer chat back to Bot agent...")
         if session_id not in self.services.active_sessions:
             raise ValueError(f"Session {session_id} not found")
             
         session = self.services.active_sessions[session_id]
         
         if session.current_agent == AgentType.BOT:
-            return False  # Already with bot
-        chat_history = await self.services.get_chat_history(
-            session_id, session.customer_id)
+            return "Chat already handled by bot" 
+        transfer_message = "Chat transferred back to AI assistant"
         await chat_history.add_turn(
             'system',
-            "Chat transferred back to AI assistant",
+            transfer_message,
             {'reason': "agent_initiated"}
         )
         # Update session
         session.current_agent = AgentType.BOT
         session.last_interaction = datetime.datetime.now()
-        return True
+        return transfer_message
 
     async def get_session_stats(self, session_id: str) -> Dict:
         """Get statistics for a specific chat session."""

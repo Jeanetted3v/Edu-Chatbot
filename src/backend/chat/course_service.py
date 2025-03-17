@@ -28,7 +28,7 @@ class CourseService:
 
     async def handle_course_query(
         self,
-        intent_result: IntentResult,
+        intent_result: Dict,
         message_history: str
     ) -> str:
         try:
@@ -48,6 +48,7 @@ class CourseService:
                 )
             else:
                 age = intent_result.parameters.age
+                logger.info(f"Age: {age}")
                 courses_json = self._get_available_courses(age)
                 logger.info(f"Course JSON: {courses_json}")
 

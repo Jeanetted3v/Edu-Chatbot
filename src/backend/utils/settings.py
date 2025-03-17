@@ -1,5 +1,7 @@
 # from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
+import time
+from pymongo.errors import ConfigurationError
 from pydantic_settings import BaseSettings
 
 load_dotenv(find_dotenv(), override=True)
@@ -17,10 +19,12 @@ class Settings(BaseSettings):
 
     OPENAI_API_KEY: str
 
-    MONGODB_URI: str
     GOOGLE_CREDENTIALS_PATH: str
     GOOGLE_SPREADSHEET_ID: str
     GOOGLE_CLOUD_PROJECT_ID: str
+    MONGODB_URI: str
+    # MONGODB_USERNAME: str
+    # MONGODB_PASSWORD: str
 
 
 SETTINGS = Settings()

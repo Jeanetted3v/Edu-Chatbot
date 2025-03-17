@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Dict, Optional
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import DESCENDING
-from src.backend.models.human_agent import ChatTurn
+from src.backend.models.human_agent import ChatTurn, MessageRole
 
 
 logger = logging.getLogger(__name__)
@@ -12,13 +12,14 @@ logger = logging.getLogger(__name__)
 class ChatHistory:
     def __init__(
         self,
-        mongo_client: AsyncIOMotorClient,
+        cfg,
         session_id: str,
         customer_id: str,
+        collection=None,
         max_turns_for_prompt: int = 30
     ):
-        self.db = mongo_client.fogg_db
-        self.collection = self.db.chat_history
+        self.cfg = cfg
+        self.collection = collection
         self.session_id = session_id
         self.customer_id = customer_id
         self.conversation_turns = []
@@ -34,8 +35,13 @@ class ChatHistory:
         """Add a turn to conversation history with full metadata for MongoDB"""
         timestamp = datetime.now()
         try:
+            role_str = (
+                role.value 
+                if isinstance(role, MessageRole) 
+                else str(role).lower()
+            )
             turn = ChatTurn(
-                role=role,
+                role=role_str,
                 content=content,
                 timestamp=timestamp,
                 customer_id=self.customer_id,
@@ -51,11 +57,24 @@ class ChatHistory:
             result = await self.collection.insert_one(turn_dict)
             logger.info(f"Added message with ID: {result.inserted_id}")
             
+            message_data = {
+                "type": "new_message",
+                "message": {
+                    "role": role_str,
+                    "content": content,
+                    "timestamp": timestamp.isoformat(),
+                    "customer_id": self.customer_id,
+                    "session_id": self.session_id
+                }
+            }
+            from src.backend.websocket.manager import manager
+            await manager.broadcast_to_session(self.session_id, message_data)
         except Exception as e:
             logger.error(f"Error adding turn to history: {str(e)}")
 
     async def format_history_for_prompt(self) -> str:
         """Format last N turns in simple format for prompt to save tokens"""
+        turns = []
         try:
             cursor = self.collection.find({
                 'customer_id': self.customer_id,
@@ -77,7 +96,8 @@ class ChatHistory:
             
             # Format the turns into a string
             formatted_history = "\n".join(
-                f"{turn['role'].capitalize()}: {turn['content']}"
+                f"{turn.get('role', 'UNKNOWN').capitalize()}: "
+                f"{turn.get('content', '')}"
                 for turn in turns
             )
             logger.info(f"Successfully retrieved {len(turns)} messages")

@@ -110,7 +110,7 @@ course_service_prompts:
       - Payment terms
 
 
-    Please provide detailed pricing information for age {age} and the specific
+    Please provide detailed pricing information for the age and the specific
     course the customer is asking about. If the customer hasn't determine for 
     a specific course, ask them which course they are interested in.
     

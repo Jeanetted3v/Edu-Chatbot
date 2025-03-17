@@ -1,4 +1,4 @@
-"""To run in terminal: python -m src.backend.data_ingest_main"""
+"""To run in terminal: python -m src.backend.main.data_ingest_main"""
 import logging
 import hydra
 import asyncio
@@ -17,7 +17,7 @@ setup_logging()
 
 @hydra.main(
     version_base=None,
-    config_path="../../config",
+    config_path="../../../config",
     config_name="data_ingest")
 def main(cfg: DictConfig) -> None:
     pdfs = []

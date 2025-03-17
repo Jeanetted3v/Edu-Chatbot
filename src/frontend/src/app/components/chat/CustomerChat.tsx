@@ -1,0 +1,312 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { ApiService, ChatMessage } from '../../services/api';
+import MessageList from './MessageList';
+import MessageInput from './MessageInput';
+
+interface CustomerChatProps {
+  customerId: string;
+  sessionId: string;
+}
+
+interface UIMessage {
+  id: string;
+  content: string;
+  sender: 'user' | 'bot' | 'staff' | 'system';
+  timestamp: Date;
+}
+
+export default function CustomerChat({ customerId, sessionId }: CustomerChatProps) {
+  const [messages, setMessages] = useState<UIMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Scroll to bottom when messages change
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Load initial chat history
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      try {
+        setLoading(true);
+        // Try to get chat history
+        const history = await ApiService.getChatHistory(sessionId, customerId);
+        
+        // Map backend messages to UI format
+        const uiMessages = history.map((msg: ChatMessage) => ({
+          id: `${msg.timestamp}-${Math.random()}`,
+          content: msg.content,
+          sender: mapRoleToSender(msg.role),
+          timestamp: new Date(msg.timestamp)
+        }));
+        
+        setMessages(uiMessages);
+        
+        // If no history, add a welcome message
+        if (uiMessages.length === 0) {
+          setMessages([{
+            id: Date.now().toString(),
+            content: 'Welcome to our support chat! How can we help you today?',
+            sender: 'bot',
+            timestamp: new Date()
+          }]);
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        console.error('Error loading chat history:', err);
+        setError('Could not load chat history');
+        setLoading(false);
+        
+        // Add fallback welcome message
+        setMessages([{
+          id: Date.now().toString(),
+          content: 'Welcome to our support chat! How can we help you today?',
+          sender: 'bot',
+          timestamp: new Date()
+        }]);
+      }
+    };
+    
+    loadChatHistory();
+  }, [customerId, sessionId]);
+
+  // Set up WebSocket connection
+  useEffect(() => {
+    // Only set up WebSocket after loading initial messages
+    console.log('CustomerChat: WebSocket setup effect running, loading:', loading);
+    if (loading) return;
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // const wsUrl = `${protocol}//${window.location.host}/ws/chat/${sessionId}/customer`;
+    const wsUrl = `${protocol}//localhost:8000/ws/chat/${sessionId}/customer`;
+    const newSocket = new WebSocket(wsUrl);
+    
+    newSocket.onopen = () => {
+      console.log('WebSocket connected');
+    };
+    
+    newSocket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('WebSocket message received:', data);
+      
+      if (data.type === 'new_message') {
+        console.log('Processing new message:', data.message);
+        // For user messages, only display if they weren't sent by this client
+        if (data.message.role === 'user' && data.message.customer_id === customerId) {
+          console.log('Ignoring own message echo from server');
+          return; // Skip own messages echoed back
+        }
+        
+        // For all other messages (bot/staff/system or messages from other users)
+        const newMessage: UIMessage = {
+          id: `${data.message.timestamp}-${Math.random()}`,
+          content: data.message.content,
+          sender: mapRoleToSender(data.message.role),
+          timestamp: new Date(data.message.timestamp)
+        };
+        
+        // Enhanced duplicate detection
+        setMessages(prev => {
+          // Check for duplicates more carefully - consider content similarity
+          const isDuplicate = prev.some(msg => {
+            // If content is identical and timestamps are close, likely duplicate
+            const contentMatch = msg.content === newMessage.content;
+            const timeClose = Math.abs(
+              new Date(msg.timestamp).getTime() - 
+              new Date(newMessage.timestamp).getTime()
+            ) < 5000; // 5 seconds window
+            
+            return contentMatch && timeClose;
+          });
+          
+          if (isDuplicate) {
+            console.log('Duplicate message detected, not adding to UI');
+            return prev;
+          }
+          
+          console.log('Adding message to UI:', newMessage);
+          return [...prev, newMessage];
+        });
+      } else if (data.type === 'history') {
+        // Handle full history update if needed
+        const historyMessages = data.messages.map((msg: any) => ({
+          id: `${msg.timestamp}-${Math.random()}`,
+          content: msg.content,
+          sender: mapRoleToSender(msg.role),
+          timestamp: new Date(msg.timestamp)
+        }));
+        
+        setMessages(historyMessages);
+      }
+    };
+    
+    newSocket.onclose = (event) => {
+      console.log('WebSocket disconnected:', event.code, event.reason);
+      // Try to reconnect after a delay
+      setTimeout(() => {
+        if (newSocket.readyState === WebSocket.CLOSED) {
+          setSocket(null); // This will trigger useEffect to run again
+        }
+      }, 5000);
+    };
+    
+    newSocket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+    
+    setSocket(newSocket);
+    
+    // Clean up on unmount
+    return () => {
+      if (newSocket.readyState === WebSocket.OPEN) {
+        newSocket.close();
+      }
+    };
+  }, [sessionId, loading, customerId]);
+
+  // Helper to map backend roles to UI sender types
+  const mapRoleToSender = (role: string): 'user' | 'bot' | 'staff' | 'system' => {
+    switch (role?.toUpperCase()) {
+      case 'CUSTOMER':
+      case 'USER':
+        return 'user';
+      case 'BOT':
+        return 'bot';
+      case 'HUMAN_AGENT':
+        return 'staff';
+      case 'SYSTEM':
+        return 'system';
+      default:
+        return 'system';
+    }
+  };
+
+  // Scroll to bottom whenever messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessage = async (content: string) => {
+    if (!content.trim()) return;
+
+    // Add user message to UI immediately
+    const userMessage: UIMessage = {
+      id: Date.now().toString(),
+      content,
+      sender: 'user',
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+
+    // Try WebSocket first
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      console.log("Sending message via WebSocket");
+      socket.send(JSON.stringify({
+        type: "message",
+        content: content,
+        customer_id: customerId
+      }));
+      return; // Exit early - no need to call API
+    } 
+    
+    // Only fall back to API if WebSocket isn't available
+    try {
+      console.log("WebSocket unavailable, falling back to API");
+      const response = await ApiService.sendCustomerMessage(content, customerId, sessionId);
+      
+      // Add response to UI if WebSocket fails
+      const responseMessage: UIMessage = {
+        id: `${Date.now()}-response`,
+        content: response.message,
+        sender: mapRoleToSender(response.role),
+        timestamp: new Date(response.timestamp)
+      };
+        
+      setMessages(prev => [...prev, responseMessage]);
+      // If WebSocket is active, the response will come through that
+    } catch (err) {
+      console.error('Error sending message:', err);
+      
+      // Add error message
+      const errorMessage: UIMessage = {
+        id: `${Date.now()}-error`,
+        content: 'Sorry, there was an error sending your message. Please try again.',
+        sender: 'system',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-full">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="flex justify-center items-center h-full text-red-500">{error}</div>;
+  }
+
+  return (
+    <div className="flex flex-col h-[calc(100%-3.5rem)]">
+      {/* Debug info */}
+      <div className="bg-yellow-100 p-2 text-xs">
+        <div>Messages in state: {messages.length}</div>
+      </div>
+      
+      {/* Direct message rendering */}
+      <div className="flex-1 overflow-auto p-4">
+        {messages.map(message => {
+          // Format date and time
+          const messageDate = new Date(message.timestamp);
+          const formattedDate = messageDate.toLocaleDateString();
+          const formattedTime = messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          
+          return (
+            <div 
+              key={message.id}
+              style={{
+                padding: '10px',
+                margin: '8px 0',
+                borderRadius: '8px',
+                backgroundColor: message.sender === 'user' ? '#e6f7ff' : '#f0f0f0',
+                border: '2px solid #d9d9d9',
+                marginLeft: message.sender === 'user' ? 'auto' : '0',
+                marginRight: message.sender === 'user' ? '0' : 'auto',
+                maxWidth: '80%'
+              }}
+            >
+              <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '4px' }}>
+                <strong>
+                  {message.sender === 'user' ? 'Customer' : 
+                   message.sender === 'bot' ? 'Bot' : 
+                   message.sender === 'staff' ? 'Support Agent' : 'System'}
+                </strong> • {formattedDate} {formattedTime}
+              </div>
+              <div>{message.content}</div>
+            </div>
+          );
+        })}
+        
+        {/* Comment out MessageList temporarily */}
+        {/* <MessageList messages={messages} /> */}
+        <div ref={messagesEndRef} />
+      </div>
+      
+      <div className="p-4 border-t">
+        <MessageInput 
+          onSendMessage={handleSendMessage} 
+          isStaffMode={false} 
+          placeholder="Type your message..."
+        />
+      </div>
+    </div>
+  );
+}
