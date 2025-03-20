@@ -43,7 +43,7 @@ class TransferRequest(BaseModel):
     """Request model for transferring back to bot"""
     session_id: str
     customer_id: str
-    message: str = "Transferring back to automated assistant."
+    message: Optional[str] = None
 
 
 class TakeoverRequest(BaseModel):

@@ -121,16 +121,8 @@ async def transfer_to_bot(
             session_id,
             chat_history
         )
-        
-        # If custom message provided, use that instead
-        if custom_message:
-            transfer_message = custom_message
-        
         # Update session agent type
         session.current_agent = AgentType.BOT
-        
-        # Add system message to chat history
-        await chat_history.add_turn(MessageRole.SYSTEM, transfer_message)
         
         return MessageResponse(
             message=transfer_message,
