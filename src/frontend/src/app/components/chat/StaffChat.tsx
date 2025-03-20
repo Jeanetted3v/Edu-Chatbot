@@ -114,6 +114,24 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
           };
           
           setMessages(prev => {
+            // Enhanced duplicate detection
+            const isDuplicate = prev.some(msg => {
+              // Check content AND sender type for a more precise duplicate check
+              const contentMatch = msg.content === newMessage.content;
+              const senderMatch = msg.sender === newMessage.sender;
+              const timeClose = Math.abs(
+                new Date(msg.timestamp).getTime() - 
+                new Date(newMessage.timestamp).getTime()
+              ) < 5000; // 5 seconds window
+              
+              return contentMatch && senderMatch && timeClose;
+            });
+            
+            if (isDuplicate) {
+              console.log('Duplicate message detected, not adding to UI');
+              return prev;
+            }
+            
             const updatedMessages = [...prev, newMessage];
             updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
             return updatedMessages;
@@ -195,12 +213,32 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
             timestamp: new Date(msg.timestamp)
           }));
           
-          setMessages(uiMessages);
+          // Instead of replacing all messages, merge with existing ones with duplicate detection
+          setMessages(prev => {
+            const combinedMessages = [...prev];
+            
+            // Try to add each message from the API, checking for duplicates
+            uiMessages.forEach((newMsg: UIMessage) => {
+              const isDuplicate = combinedMessages.some(existingMsg => 
+                existingMsg.content === newMsg.content &&
+                existingMsg.sender === newMsg.sender &&
+                Math.abs(existingMsg.timestamp.getTime() - newMsg.timestamp.getTime()) < 5000
+              );
+              
+              if (!isDuplicate) {
+                combinedMessages.push(newMsg);
+              }
+            });
+            
+            // Sort and return
+            combinedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+            return combinedMessages;
+          });
         }
       } catch (err) {
         console.error('Error polling chat history:', err);
       }
-    }, 5000); // Poll every 5 seconds
+    }, 5000);
     
     return () => {
       console.log('Clearing polling interval');
@@ -234,62 +272,85 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
   };
 
   // Handle staff sending a message
-  const handleSendMessage = async (content: string) => {
-    if (!content.trim()) return;
+const handleSendMessage = async (content: string) => {
+  if (!content.trim()) return;
 
-    try {
-      // Ensure we're in human mode first
-      if (!isHumanMode) {
-        console.log('Not in human mode, taking over...');
-        await handleTakeOver();
-      }
-      
-      console.log('Sending staff message:', content);
-      
-      // Add staff message to UI immediately for responsiveness
-      const staffMessage: UIMessage = {
-        id: Date.now().toString(),
-        content,
-        sender: 'staff',
-        timestamp: new Date(),
-      };
-
-      setMessages(prev => [...prev, staffMessage]);
-
-      // Add after adding staff message to UI (around line 287)
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        console.log('Sending via WebSocket');
-        socket.send(JSON.stringify({
-          type: "message",
-          content: content,
-          customer_id: selectedSession.customer_id
-        }));
-        console.log('Message sent via WebSocket');
-        return; // Exit early - no need to call API
-      }
-
-      console.log('WebSocket unavailable, falling back to API');
-      await ApiService.sendStaffMessage(
-        content, 
-        selectedSession.session_id, 
-        selectedSession.customer_id
-      );
-      
-      console.log('Message sent successfully');
-    } catch (err) {
-      console.error('Error sending staff message:', err);
-      
-      // Add error message to UI
-      const errorMessage: UIMessage = {
-        id: `${Date.now()}-error`,
-        content: 'Failed to send message. Please try again.',
-        sender: 'system',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
+  try {
+    // Ensure we're in human mode first
+    if (!isHumanMode) {
+      console.log('Not in human mode, taking over...');
+      await handleTakeOver();
     }
-  };
+    
+    console.log('Sending staff message:', content);
+    
+    // Create staff message object
+    const staffMessage: UIMessage = {
+      id: Date.now().toString(),
+      content,
+      sender: 'staff',
+      timestamp: new Date(),
+    };
+
+    // WebSocket approach
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      console.log('Sending via WebSocket');
+      
+      // Add the message to UI immediately for responsiveness
+      setMessages(prev => {
+        const updatedMessages = [...prev, staffMessage];
+        updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        return updatedMessages;
+      });
+      
+      socket.send(JSON.stringify({
+        type: "message",
+        content: content,
+        customer_id: selectedSession.customer_id,
+        // Add a client_message_id to help with duplicate detection
+        client_message_id: staffMessage.id
+      }));
+      
+      console.log('Message sent via WebSocket');
+      return; // Exit early - no need to call API
+    }
+    
+    // API fallback approach - only runs if WebSocket isn't available
+    console.log('WebSocket unavailable, falling back to API');
+    
+    // Add message to UI before API call for responsiveness
+    setMessages(prev => {
+      const updatedMessages = [...prev, staffMessage];
+      updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      return updatedMessages;
+    });
+    
+    // Send via API
+    await ApiService.sendStaffMessage(
+      content, 
+      selectedSession.session_id, 
+      selectedSession.customer_id
+    );
+    
+    console.log('Message sent successfully via API');
+  } catch (err) {
+    console.error('Error sending staff message:', err);
+    
+    // Add error message to UI
+    const errorMessage: UIMessage = {
+      id: `${Date.now()}-error`,
+      content: 'Failed to send message. Please try again.',
+      sender: 'system',
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => {
+      const updatedMessages = [...prev, errorMessage];
+      updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      return updatedMessages;
+    });
+  }
+};
 
   // Handle taking over the conversation
   const handleTakeOver = async () => {
