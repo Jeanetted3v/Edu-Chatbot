@@ -292,7 +292,7 @@ const handleSendMessage = async (content: string) => {
       timestamp: new Date(),
     };
 
-    // WebSocket approach
+    // WebSocket approach. Check if WebSocket is connected
     if (socket && socket.readyState === WebSocket.OPEN) {
       console.log('Sending via WebSocket');
       
@@ -352,31 +352,49 @@ const handleSendMessage = async (content: string) => {
   }
 };
 
-  // Handle taking over the conversation
+  // Handle taking over the conversation via WebSocket
   const handleTakeOver = async () => {
     try {
       console.log('Taking over conversation');
-      await ApiService.takeOverSession(
-        selectedSession.session_id, 
-        selectedSession.customer_id
-      );
       
+      // Check if WebSocket is connected
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        // Send takeover command via WebSocket
+        socket.send(JSON.stringify({
+          type: "command",
+          action: "takeover",
+          session_id: selectedSession.session_id,
+          customer_id: selectedSession.customer_id
+        }));
+        
+        console.log('Takeover command sent via WebSocket');
+        // Don't add system message here - will come from server via WebSocket
+      } else {
+        // Fallback to API if WebSocket is not available
+        console.log('WebSocket not available, using API fallback');
+        await ApiService.takeOverSession(
+          selectedSession.session_id, 
+          selectedSession.customer_id
+        );
+        
+        // Add system message to UI
+        const takeoverMessage: UIMessage = {
+          id: `${Date.now()}-takeover`,
+          content: '--- Human Agent mode activated ---',
+          sender: 'system',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => {
+          const updatedMessages = [...prev, takeoverMessage];
+          updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+          return updatedMessages;
+        });
+      }
+      
+      // Update UI state
       setIsHumanMode(true);
       
-      // Add system message to UI
-      const takeoverMessage: UIMessage = {
-        id: `${Date.now()}-takeover`,
-        content: '--- Human Agent mode activated ---',
-        sender: 'system',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => {
-        const updatedMessages = [...prev, takeoverMessage];
-        updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-        return updatedMessages;
-      });
-      console.log('Takeover successful');
     } catch (err) {
       console.error('Error taking over session:', err);
       
@@ -388,31 +406,57 @@ const handleSendMessage = async (content: string) => {
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const updatedMessages = [...prev, errorMessage];
+        updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        return updatedMessages;
+      });
     }
   };
 
-  // Handle transferring back to bot
+  // Handle transferring back to bot, via WebSocket
   const handleTransferToBot = async () => {
     try {
       console.log('Transferring to bot');
-      await ApiService.transferToBot(
-        selectedSession.session_id, 
-        selectedSession.customer_id
-      );
       
+      // Check if WebSocket is connected
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        // Send transfer command via WebSocket
+        socket.send(JSON.stringify({
+          type: "command",
+          action: "transfer_to_bot",
+          session_id: selectedSession.session_id,
+          customer_id: selectedSession.customer_id
+        }));
+        
+        console.log('Transfer command sent via WebSocket');
+        // Don't add system message here - will come from server via WebSocket
+      } else {
+        // Fallback to API if WebSocket is not available
+        console.log('WebSocket not available, using API fallback');
+        await ApiService.transferToBot(
+          selectedSession.session_id, 
+          selectedSession.customer_id
+        );
+        
+        // Add system message to UI
+        const transferMessage: UIMessage = {
+          id: `${Date.now()}-transfer`,
+          content: '--- Bot mode activated ---',
+          sender: 'system',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => {
+          const updatedMessages = [...prev, transferMessage];
+          updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+          return updatedMessages;
+        });
+      }
+      
+      // Update UI state
       setIsHumanMode(false);
       
-      // Add system message to UI
-      const transferMessage: UIMessage = {
-        id: `${Date.now()}-transfer`,
-        content: '--- Bot mode activated ---',
-        sender: 'system',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, transferMessage]);
-      console.log('Transfer to bot successful');
     } catch (err) {
       console.error('Error transferring to bot:', err);
       
@@ -424,7 +468,11 @@ const handleSendMessage = async (content: string) => {
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const updatedMessages = [...prev, errorMessage];
+        updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        return updatedMessages;
+      });
     }
   };
 
