@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { ApiService, ChatMessage, ChatSession } from '../../services/api';
-import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import { Button } from '../ui/button';
 import { User, Bot, RefreshCw } from 'lucide-react';
@@ -51,7 +50,7 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
         sender: mapRoleToSender(msg.role),
         timestamp: new Date(msg.timestamp)
       }));
-      
+      uiMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
       setMessages(uiMessages);
       setLoading(false);
     } catch (err) {
@@ -114,7 +113,11 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
             timestamp: new Date(data.message.timestamp)
           };
           
-          setMessages(prev => [...prev, newMessage]);
+          setMessages(prev => {
+            const updatedMessages = [...prev, newMessage];
+            updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+            return updatedMessages;
+          });
         } else if (data.type === 'history') {
           console.log('Processing history update from WebSocket:', data.messages.length, 'messages');
           // Handle full history update
@@ -124,6 +127,8 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
             sender: mapRoleToSender(msg.role),
             timestamp: new Date(msg.timestamp)
           }));
+
+          historyMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
           
           setMessages(historyMessages);
         } else if (data.type === 'agent_change') {
@@ -305,7 +310,11 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, takeoverMessage]);
+      setMessages(prev => {
+        const updatedMessages = [...prev, takeoverMessage];
+        updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        return updatedMessages;
+      });
       console.log('Takeover successful');
     } catch (err) {
       console.error('Error taking over session:', err);
@@ -417,23 +426,55 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
       </div>
       
       <div className="flex-1 overflow-auto p-4">
-        <MessageList messages={messages} />
+        {messages.map(message => {
+          // Format date and time
+          const messageDate = new Date(message.timestamp);
+          const formattedDate = messageDate.toLocaleDateString();
+          const formattedTime = messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          
+          return (
+            <div 
+              key={message.id}
+              style={{
+                padding: '10px',
+                margin: '8px 0',
+                borderRadius: '8px',
+                backgroundColor: message.sender === 'user' ? '#e6f7ff' : '#f0f0f0',
+                border: '2px solid #d9d9d9',
+                marginLeft: message.sender === 'user' ? 'auto' : '0',
+                marginRight: message.sender === 'user' ? '0' : 'auto',
+                maxWidth: '80%'
+              }}
+            >
+              <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '4px' }}>
+                <strong>
+                  {message.sender === 'user' ? 'Customer' : 
+                  message.sender === 'bot' ? 'Bot' : 
+                  message.sender === 'staff' ? 'Support Agent' : 'System'}
+                </strong> • {formattedDate} {formattedTime}
+              </div>
+              <div>{message.content}</div>
+            </div>
+          );
+        })}
+        
+        {/* Comment out MessageList temporarily */}
+        {/* <MessageList messages={messages} /> */}
         <div ref={messagesEndRef} />
       </div>
-      
       <div className="p-4 border-t">
-        <MessageInput 
-          onSendMessage={handleSendMessage} 
-          isStaffMode={true} 
-          placeholder="Type as support agent..."
-          isDisabled={!isHumanMode}
-        />
-        {!isHumanMode && (
-          <div className="text-xs text-center mt-2 text-gray-500">
-            Click 'Take Over' to respond as a human agent
-          </div>
-        )}
-      </div>
+      <MessageInput 
+        onSendMessage={handleSendMessage} 
+        isStaffMode={true} 
+        placeholder="Type as support agent..."
+        isDisabled={!isHumanMode}
+      />
+      {!isHumanMode && (
+        <div className="text-xs text-center mt-2 text-gray-500">
+          Click 'Take Over' to respond as a human agent
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 }

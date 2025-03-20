@@ -17,18 +17,21 @@ interface UIMessage {
   timestamp: Date;
 }
 
+// React component for a customer chat interface
 export default function CustomerChat({ customerId, sessionId }: CustomerChatProps) {
-  const [messages, setMessages] = useState<UIMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [socket, setSocket] = useState<WebSocket | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // State variables to manage component data
+  const [messages, setMessages] = useState<UIMessage[]>([]); // Stores chat messages
+  const [loading, setLoading] = useState(true);  // Tracks when data is loading
+  const [error, setError] = useState('');  // Stores error messages
+  const [socket, setSocket] = useState<WebSocket | null>(null);  // WebSocket connection
+  const messagesEndRef = useRef<HTMLDivElement>(null);  // Ref to scroll to bottom
   
   // Scroll to bottom when messages change
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Sets up the component and defines state variables that will hold all the data needed for the chat to work.
   // Load initial chat history
   useEffect(() => {
     const loadChatHistory = async () => {
@@ -44,7 +47,7 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
           sender: mapRoleToSender(msg.role),
           timestamp: new Date(msg.timestamp)
         }));
-        
+        uiMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
         setMessages(uiMessages);
         
         // If no history, add a welcome message
@@ -131,7 +134,11 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
           }
           
           console.log('Adding message to UI:', newMessage);
-          return [...prev, newMessage];
+          // Create a new array with all previous messages plus the new one
+          const updatedMessages = [...prev, newMessage];
+          // Sort all messages by timestamp
+          updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+          return updatedMessages;
         });
       } else if (data.type === 'history') {
         // Handle full history update if needed
@@ -141,6 +148,8 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
           sender: mapRoleToSender(msg.role),
           timestamp: new Date(msg.timestamp)
         }));
+
+        historyMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
         
         setMessages(historyMessages);
       }
@@ -192,6 +201,7 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
     scrollToBottom();
   }, [messages]);
 
+  // Converts server-side role labels to display-friendly types that the UI can understand.
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
