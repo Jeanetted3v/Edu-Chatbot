@@ -53,6 +53,8 @@ course_service_prompts:
         {{"index": 2, "score": 0.7, "reason": "Related to interest because..."}}
     ]
     Try to keep the response concise.
+    Refrain from output in markdown format.
+    Remember you are chatting with a person, respond in string format.
 
   base_context_general: |
     Message history: {message_history}

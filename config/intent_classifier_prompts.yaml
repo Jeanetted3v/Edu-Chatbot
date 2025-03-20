@@ -32,12 +32,13 @@ intent_classifier_prompts:
     1. Detect language of query (English or Chinese)
     2. Classify intent based on query
     3. Extract provided information into parameters
-    4. Ask for missing required information
+    4. Ask for missing required information. If a field is optional, only ask once. 
+      If customer does not provide, refrain from asking a second time.
     5. Generate response in same language as query ONLY if there is missing required information
     6. Set response to null if all required information is provided
     7. Consider message history from previous context
     8. DO NOT change intent classification when receiving answers to follow-up questions
-    9. If the intent is general_inquiry, REFRAIN from asking for optinal information
+    9. Keep responses concise and friendly.
 
 
     Example response format:
