@@ -68,7 +68,7 @@ intent_classifier_prompts:
       "response": null,
       "missing_info": []
     }
-    Try to keep the response concise.
+    Try to keep the response short and concise, like chatting via a messaging app.
   user_prompt: |
     Current query: {query}
 
