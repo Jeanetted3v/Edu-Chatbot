@@ -100,7 +100,7 @@ export default function ChatDemoPage() {
           <h2 className="text-lg font-medium mb-2 text-center">Customer View</h2>
           <div className="bg-white border rounded-lg overflow-hidden" style={{ maxWidth: '400px', margin: '0 auto', height: '600px' }}>
             <div className="h-14 bg-blue-500 text-white flex items-center justify-center">
-              <h3 className="font-medium">Company Support Chat</h3>
+              <h3 className="font-medium">Fantastic Education Pte. Ltd.</h3>
             </div>
             <CustomerChat 
               customerId={customerId} 

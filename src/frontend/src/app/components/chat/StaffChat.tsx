@@ -24,6 +24,7 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
   const [error, setError] = useState('');
   const [isHumanMode, setIsHumanMode] = useState(selectedSession.current_agent === 'HUMAN');
   const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [socketStatus, setSocketStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Scroll to bottom when messages change
@@ -45,13 +46,27 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
       
       // Map backend messages to UI format
       const uiMessages = history.map((msg: ChatMessage) => ({
-        id: `${msg.timestamp}-${Math.random()}`,
+        id: `${msg.timestamp}-${msg.role}-${msg.content.substring(0, 20)}`,
         content: msg.content,
         sender: mapRoleToSender(msg.role),
         timestamp: new Date(msg.timestamp)
       }));
+
       uiMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
-      setMessages(uiMessages);
+      
+      // Use a Map to ensure uniqueness by content+sender+approximate time
+      const uniqueMessages = new Map();
+      
+      for (const msg of uiMessages) {
+        // Create a signature that combines content, sender, and approximate time (rounded to nearest 10 seconds)
+        const timeWindow = Math.floor(msg.timestamp.getTime() / 10000) * 10000;
+        const signature = `${msg.content}|${msg.sender}|${timeWindow}`;
+        
+        // Only keep the most recent message for each signature
+        uniqueMessages.set(signature, msg);
+      }
+      
+      setMessages(Array.from(uniqueMessages.values()));
       setLoading(false);
     } catch (err) {
       console.error('Error loading chat history:', err);
@@ -73,13 +88,11 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
     }
     
     setSocket(null); // This will trigger the WebSocket setup effect
+    setSocketStatus('disconnected');
   }, [selectedSession.session_id]);
 
   // Set up WebSocket connection
   useEffect(() => {
-    console.log('CustomerChat: WebSocket setup effect running');
-    console.log('Loading state:', loading);
-    console.log('SessionId from props:', selectedSession.session_id);
     console.log('StaffChat: WebSocket setup effect running, loading:', loading, 'session ID:', selectedSession.session_id);
     if (loading || !selectedSession.session_id) {
       console.log('Not setting up WebSocket - still loading or no session ID');
@@ -91,11 +104,13 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
     const wsUrl = `${wsProtocol}//localhost:8000/ws/chat/${selectedSession.session_id}/staff`;
     
     console.log('Attempting to connect WebSocket to:', wsUrl);
+    setSocketStatus('connecting');
     
     const newSocket = new WebSocket(wsUrl);
     
     newSocket.onopen = () => {
       console.log('WebSocket connected successfully for staff view!');
+      setSocketStatus('connected');
     };
     
     newSocket.onmessage = (event) => {
@@ -107,7 +122,8 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
         if (data.type === 'new_message') {
           console.log('Processing new message from WebSocket:', data.message);
           const newMessage: UIMessage = {
-            id: `${data.message.timestamp}-${Math.random()}`,
+            // Create a more stable ID that combines timestamp, role and content
+            id: `${data.message.timestamp}-${data.message.role}-${data.message.content.substring(0, 20)}`,
             content: data.message.content,
             sender: mapRoleToSender(data.message.role),
             timestamp: new Date(data.message.timestamp)
@@ -119,10 +135,11 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
               // Check content AND sender type for a more precise duplicate check
               const contentMatch = msg.content === newMessage.content;
               const senderMatch = msg.sender === newMessage.sender;
+              // Use a 15-second window to catch duplicates from different sources
               const timeClose = Math.abs(
                 new Date(msg.timestamp).getTime() - 
                 new Date(newMessage.timestamp).getTime()
-              ) < 5000; // 5 seconds window
+              ) < 15000; // 15 seconds window
               
               return contentMatch && senderMatch && timeClose;
             });
@@ -138,17 +155,40 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
           });
         } else if (data.type === 'history') {
           console.log('Processing history update from WebSocket:', data.messages.length, 'messages');
-          // Handle full history update
-          const historyMessages = data.messages.map((msg: any) => ({
-            id: `${msg.timestamp}-${Math.random()}`,
-            content: msg.content,
-            sender: mapRoleToSender(msg.role),
-            timestamp: new Date(msg.timestamp)
-          }));
-
-          historyMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
           
-          setMessages(historyMessages);
+          // Use setMessages with a callback to ensure we're working with the latest state
+          setMessages(prevMessages => {
+            // Handle full history update
+            const historyMessages = data.messages.map((msg: any) => ({
+              id: `${msg.timestamp}-${msg.role}-${msg.content.substring(0, 20)}`,
+              content: msg.content,
+              sender: mapRoleToSender(msg.role),
+              timestamp: new Date(msg.timestamp)
+            }));
+  
+            // Apply the same deduplication strategy as in loadChatHistory
+            const uniqueMessages = new Map();
+            
+            // First add all existing messages to ensure we don't lose anything
+            prevMessages.forEach(msg => {
+              const timeWindow = Math.floor(msg.timestamp.getTime() / 10000) * 10000;
+              const signature = `${msg.content}|${msg.sender}|${timeWindow}`;
+              uniqueMessages.set(signature, msg);
+            });
+            
+            // Then add new messages from history update, possibly overwriting older duplicates
+            historyMessages.forEach(msg => {
+              const timeWindow = Math.floor(msg.timestamp.getTime() / 10000) * 10000;
+              const signature = `${msg.content}|${msg.sender}|${timeWindow}`;
+              uniqueMessages.set(signature, msg);
+            });
+            
+            // Convert back to array and sort
+            const combinedMessages = Array.from(uniqueMessages.values());
+            combinedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+            
+            return combinedMessages;
+          });
         } else if (data.type === 'agent_change') {
           console.log('Agent changed to:', data.current_agent);
           // Handle agent change notifications
@@ -163,17 +203,19 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
     
     newSocket.onclose = (event) => {
       console.log('Staff WebSocket disconnected:', event.code, event.reason);
-      // Try to reconnect after a delay
-      setTimeout(() => {
-        if (newSocket.readyState === WebSocket.CLOSED) {
-          console.log('WebSocket still closed after timeout, will reset socket state');
+      setSocketStatus('disconnected');
+      // Try to reconnect after a delay if this wasn't a clean close
+      if (event.code !== 1000) { // 1000 = normal closure
+        setTimeout(() => {
+          console.log('Attempting to reconnect WebSocket...');
           setSocket(null); // This will trigger useEffect to run again
-        }
-      }, 5000);
+        }, 5000);
+      }
     };
     
     newSocket.onerror = (error) => {
       console.error('Staff WebSocket error:', error);
+      setSocketStatus('disconnected');
     };
     
     setSocket(newSocket);
@@ -186,65 +228,6 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
       }
     };
   }, [selectedSession.session_id, loading]);
-
-  // Poll for new messages (as fallback if WebSocket fails)
-  useEffect(() => {
-    // Only fall back to polling if WebSocket isn't connected
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      console.log('WebSocket connected, skipping polling');
-      return;
-    }
-    
-    console.log('Setting up polling fallback (every 5s)');
-    const pollInterval = setInterval(async () => {
-      try {
-        const history = await ApiService.getChatHistory(
-          selectedSession.session_id, 
-          selectedSession.customer_id
-        );
-        
-        // Only update if we have more messages than current state
-        if (history.length > messages.length) {
-          console.log('Polling found new messages:', history.length - messages.length);
-          const uiMessages = history.map((msg: ChatMessage) => ({
-            id: `${msg.timestamp}-${Math.random()}`,
-            content: msg.content,
-            sender: mapRoleToSender(msg.role),
-            timestamp: new Date(msg.timestamp)
-          }));
-          
-          // Instead of replacing all messages, merge with existing ones with duplicate detection
-          setMessages(prev => {
-            const combinedMessages = [...prev];
-            
-            // Try to add each message from the API, checking for duplicates
-            uiMessages.forEach((newMsg: UIMessage) => {
-              const isDuplicate = combinedMessages.some(existingMsg => 
-                existingMsg.content === newMsg.content &&
-                existingMsg.sender === newMsg.sender &&
-                Math.abs(existingMsg.timestamp.getTime() - newMsg.timestamp.getTime()) < 5000
-              );
-              
-              if (!isDuplicate) {
-                combinedMessages.push(newMsg);
-              }
-            });
-            
-            // Sort and return
-            combinedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-            return combinedMessages;
-          });
-        }
-      } catch (err) {
-        console.error('Error polling chat history:', err);
-      }
-    }, 5000);
-    
-    return () => {
-      console.log('Clearing polling interval');
-      clearInterval(pollInterval);
-    };
-  }, [selectedSession, messages.length, socket]);
 
   // Scroll to bottom whenever messages change
   useEffect(() => {
@@ -272,85 +255,85 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
   };
 
   // Handle staff sending a message
-const handleSendMessage = async (content: string) => {
-  if (!content.trim()) return;
+  const handleSendMessage = async (content: string) => {
+    if (!content.trim()) return;
 
-  try {
-    // Ensure we're in human mode first
-    if (!isHumanMode) {
-      console.log('Not in human mode, taking over...');
-      await handleTakeOver();
-    }
-    
-    console.log('Sending staff message:', content);
-    
-    // Create staff message object
-    const staffMessage: UIMessage = {
-      id: Date.now().toString(),
-      content,
-      sender: 'staff',
-      timestamp: new Date(),
-    };
-
-    // WebSocket approach. Check if WebSocket is connected
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      console.log('Sending via WebSocket');
+    try {
+      // Ensure we're in human mode first
+      if (!isHumanMode) {
+        console.log('Not in human mode, taking over...');
+        await handleTakeOver();
+      }
       
-      // Add the message to UI immediately for responsiveness
+      console.log('Sending staff message:', content);
+      
+      // Create staff message object
+      const staffMessage: UIMessage = {
+        id: Date.now().toString(),
+        content,
+        sender: 'staff',
+        timestamp: new Date(),
+      };
+
+      // WebSocket approach. Check if WebSocket is connected
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        console.log('Sending via WebSocket');
+        
+        // Add the message to UI immediately for responsiveness
+        setMessages(prev => {
+          const updatedMessages = [...prev, staffMessage];
+          updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+          return updatedMessages;
+        });
+        
+        socket.send(JSON.stringify({
+          type: "message",
+          content: content,
+          customer_id: selectedSession.customer_id,
+          // Add a client_message_id to help with duplicate detection
+          client_message_id: staffMessage.id
+        }));
+        
+        console.log('Message sent via WebSocket');
+        return; // Exit early - no need to call API
+      }
+      
+      // API fallback approach - only runs if WebSocket isn't available
+      console.log('WebSocket unavailable, falling back to API');
+      
+      // Add message to UI before API call for responsiveness
       setMessages(prev => {
         const updatedMessages = [...prev, staffMessage];
         updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
         return updatedMessages;
       });
       
-      socket.send(JSON.stringify({
-        type: "message",
-        content: content,
-        customer_id: selectedSession.customer_id,
-        // Add a client_message_id to help with duplicate detection
-        client_message_id: staffMessage.id
-      }));
+      // Send via API
+      await ApiService.sendStaffMessage(
+        content, 
+        selectedSession.session_id, 
+        selectedSession.customer_id
+      );
       
-      console.log('Message sent via WebSocket');
-      return; // Exit early - no need to call API
+      console.log('Message sent successfully via API');
+    } catch (err) {
+      console.error('Error sending staff message:', err);
+      
+      // Add error message to UI
+      const errorMessage: UIMessage = {
+        id: `${Date.now()}-error`,
+        content: 'Failed to send message. Please try again.',
+        sender: 'system',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => {
+        const updatedMessages = [...prev, errorMessage];
+        updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        return updatedMessages;
+      });
     }
-    
-    // API fallback approach - only runs if WebSocket isn't available
-    console.log('WebSocket unavailable, falling back to API');
-    
-    // Add message to UI before API call for responsiveness
-    setMessages(prev => {
-      const updatedMessages = [...prev, staffMessage];
-      updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      return updatedMessages;
-    });
-    
-    // Send via API
-    await ApiService.sendStaffMessage(
-      content, 
-      selectedSession.session_id, 
-      selectedSession.customer_id
-    );
-    
-    console.log('Message sent successfully via API');
-  } catch (err) {
-    console.error('Error sending staff message:', err);
-    
-    // Add error message to UI
-    const errorMessage: UIMessage = {
-      id: `${Date.now()}-error`,
-      content: 'Failed to send message. Please try again.',
-      sender: 'system',
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => {
-      const updatedMessages = [...prev, errorMessage];
-      updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      return updatedMessages;
-    });
-  }
-};
+  };
 
   // Handle taking over the conversation via WebSocket
   const handleTakeOver = async () => {
@@ -476,12 +459,6 @@ const handleSendMessage = async (content: string) => {
     }
   };
 
-  // Handle refreshing the chat
-  const handleRefresh = () => {
-    console.log('Manually refreshing chat');
-    loadChatHistory();
-  };
-
   if (loading) {
     return <div className="flex justify-center items-center h-full">Loading...</div>;
   }
@@ -498,7 +475,11 @@ const handleSendMessage = async (content: string) => {
           <div className="text-xs text-gray-500">
             Session: {selectedSession.session_id.substring(0, 8)}... | 
             Messages: {selectedSession.message_count} | 
-            WebSocket: {socket ? (socket.readyState === WebSocket.OPEN ? 'Connected' : 'Connecting...') : 'Disconnected'}
+            WebSocket: {
+              socketStatus === 'connected' ? 'Connected' : 
+              socketStatus === 'connecting' ? 'Connecting...' : 
+              'Disconnected'
+            }
           </div>
         </div>
         <div className="flex gap-2">
@@ -524,7 +505,7 @@ const handleSendMessage = async (content: string) => {
             </Button>
           )}
           <Button
-            onClick={handleRefresh}
+            onClick={loadChatHistory}
             size="sm"
             variant="ghost"
             className="w-8 h-8 p-0"
@@ -567,23 +548,21 @@ const handleSendMessage = async (content: string) => {
           );
         })}
         
-        {/* Comment out MessageList temporarily */}
-        {/* <MessageList messages={messages} /> */}
         <div ref={messagesEndRef} />
       </div>
       <div className="p-4 border-t">
-      <MessageInput 
-        onSendMessage={handleSendMessage} 
-        isStaffMode={true} 
-        placeholder="Type as support agent..."
-        isDisabled={!isHumanMode}
-      />
-      {!isHumanMode && (
-        <div className="text-xs text-center mt-2 text-gray-500">
-          Click 'Take Over' to respond as a human agent
-        </div>
-      )}
+        <MessageInput 
+          onSendMessage={handleSendMessage} 
+          isStaffMode={true} 
+          placeholder="Type as Support agent..."
+          isDisabled={!isHumanMode}
+        />
+        {!isHumanMode && (
+          <div className="text-xs text-center mt-2 text-gray-500">
+            Click 'Take Over' to respond as a human agent
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
 }
