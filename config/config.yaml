@@ -1,16 +1,16 @@
-csv_path: ./data/excel_course.csv
+csv_path: ./data/excel_syn_data.csv
 
 hybrid_retriever:
   semantic_weight: 0.7
   keyword_weight: 0.3
   top_k: 5
   persist_dir: ./data/embeddings
-  collection: fogg
+  collection: syn_data   # Collection name in chromadb, using syn_data for testing
 
 mongodb:
   # host: localhost
   # port: 27017
-  db_name: fogg_db
+  db_name: syn_db  # Database name in MongoDB
   chat_history_collection: chat_history
   session_collection: sessions
   timeout_hours: 0.1
@@ -38,6 +38,9 @@ sentiment_analyzer:
   llm_validate_threshold: 0.3  # If using LLM validation
   use_llm_validation: false
   default_score: 0.7
+
+api:
+  reload: False
 
 defaults:
   - _self_ 
