@@ -15,7 +15,7 @@ gdrive:
 local_doc:
   paths:
     - path: ./data/data_to_ingest/excel.xlsx
-      sheet: course
+      sheet: syn_data
     - path: ./data/data_to_ingest/rag_qna.pdf
 
 chunker:
@@ -26,7 +26,7 @@ chunker:
 embedder:
   similarity_metric: cosine  # cosine(default), L2, ip(Inner Product)
   persist_dir: ./data/embeddings
-  collection: fogg
+  collection: syn_data
   vector_store: chromadb
 
 defaults:
