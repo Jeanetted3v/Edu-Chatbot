@@ -18,6 +18,14 @@ interface UIMessage {
   timestamp: Date;
 }
 
+interface ApiMessage {
+  role: string;
+  content: string;
+  timestamp: string;
+  customer_id: string;
+  session_id: string;
+}
+
 export default function StaffChat({ selectedSession}: StaffChatProps) {
   const [messages, setMessages] = useState<UIMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,10 +167,10 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
           // Use setMessages with a callback to ensure we're working with the latest state
           setMessages(prevMessages => {
             // Handle full history update
-            const historyMessages = data.messages.map((msg: any) => ({
+            const historyMessages = data.messages.map((msg: ApiMessage): UIMessage => ({
               id: `${msg.timestamp}-${msg.role}-${msg.content.substring(0, 20)}`,
               content: msg.content,
-              sender: mapRoleToSender(msg.role),
+              sender: mapRoleToSender(msg.role) as 'user' | 'bot' | 'staff' | 'system',
               timestamp: new Date(msg.timestamp)
             }));
   
@@ -170,14 +178,14 @@ export default function StaffChat({ selectedSession}: StaffChatProps) {
             const uniqueMessages = new Map();
             
             // First add all existing messages to ensure we don't lose anything
-            prevMessages.forEach(msg => {
+            prevMessages.forEach((msg: UIMessage) => {
               const timeWindow = Math.floor(msg.timestamp.getTime() / 10000) * 10000;
               const signature = `${msg.content}|${msg.sender}|${timeWindow}`;
               uniqueMessages.set(signature, msg);
             });
             
             // Then add new messages from history update, possibly overwriting older duplicates
-            historyMessages.forEach(msg => {
+            historyMessages.forEach((msg: UIMessage) => {
               const timeWindow = Math.floor(msg.timestamp.getTime() / 10000) * 10000;
               const signature = `${msg.content}|${msg.sender}|${timeWindow}`;
               uniqueMessages.set(signature, msg);

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { ApiService, ChatMessage } from '../../services/api';
-import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 
 interface CustomerChatProps {
@@ -15,6 +14,14 @@ interface UIMessage {
   content: string;
   sender: 'user' | 'bot' | 'staff' | 'system';
   timestamp: Date;
+}
+
+interface ApiMessage {
+  role: string;
+  content: string;
+  timestamp: string;
+  customer_id: string;
+  session_id: string;
 }
 
 // React component for a customer chat interface
@@ -142,7 +149,7 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
         });
       } else if (data.type === 'history') {
         // Handle full history update if needed
-        const historyMessages = data.messages.map((msg: any) => ({
+        const historyMessages = data.messages.map((msg: ApiMessage) => ({
           id: `${msg.timestamp}-${Math.random()}`,
           content: msg.content,
           sender: mapRoleToSender(msg.role),
