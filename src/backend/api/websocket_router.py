@@ -5,7 +5,7 @@ import json
 from starlette.websockets import WebSocketState
 from src.backend.api.deps import get_websocket_service_container
 from src.backend.chat.service_container import ServiceContainer
-from src.backend.websocket.manager import manager
+from src.backend.websocket.manager import manager, ConnectionManager
 from src.backend.api.utils_router import human_takeover
 from src.backend.models.human_agent import ToggleReason
 from src.backend.models.api import MessageRole, AgentType
@@ -17,13 +17,32 @@ router = APIRouter()
 
 
 async def handle_customer_message(
-    services, session_id, customer_id, content, manager
-):
-    """Process a message from a customer via WebSocket
+    services: ServiceContainer,
+    session_id: str,
+    customer_id: str,
+    content: str,
+    manager: ConnectionManager
+) -> None:
+    """Process a message from a customer, broadcast responses to all clients.
     
-    Get a response, then the broadcast_to_session function takes that message
-    or response, forwards it to every client (both customer and staff
-    interfaces) that's connected to the same chat session
+    1. Processes the customer's message using the QueryHandler
+    2. Retrieves or creates the appropriate session
+    3. Determines the response role based on current agent type
+    4. Broadcasts the original customer message to all clients in the session
+    5. Broadcasts the response (from bot or human agent) to all clients in
+        the session
+    
+    Args:
+        services: Container with service dependencies for processing messages.
+        session_id: Unique identifier for the chat session.
+        customer_id: Unique identifier for the customer.
+        content: The text content of the customer's message.
+        manager: Connection manager for broadcasting messages to WebSocket
+            clients.
+    
+    Note:
+        The broadcast_to_session function forwards messages to all clients 
+        (both customer and staff interfaces) connected to the same chat session.
     """
     response = await services.query_handler.handle_query(
         content,
@@ -67,9 +86,33 @@ async def handle_customer_message(
 
 
 async def handle_staff_message(
-    services, session_id, customer_id, content, manager
-):
-    """Process a message from a staff member via WebSocket"""
+    services: ServiceContainer,
+    session_id: str,
+    customer_id: str,
+    content: str,
+    manager: ConnectionManager
+) -> None:
+    """Process a message from a staff member, broadcast it to all clients.
+    
+    1. Retrieves or creates the appropriate session
+    2. Gets the chat history for the session
+    3. Ensures the session is in human agent mode (triggers takeover if needed)
+    4. Adds the staff message to the chat history
+    5. Updates the last interaction timestamp
+    6. Broadcasts the staff message to all clients in the session
+    
+    Args:
+        services: Container with service dependencies for processing messages.
+        session_id: Unique identifier for the chat session.
+        customer_id: Unique identifier for the customer being assisted.
+        content: The text content of the staff member's message.
+        manager: Connection manager class for broadcasting messages to
+            WebSocketclients.
+    
+    Note:
+        If the session is currently in bot mode, this function will
+        automatically trigger a human takeover before sending the message.
+    """
     session = await services.get_or_create_session(session_id, customer_id)
     chat_history = await services.get_chat_history(session_id, customer_id)
     
@@ -101,9 +144,42 @@ async def handle_staff_message(
 
 
 async def handle_command(
-    services, session_id, customer_id, action, manager
-):
-    """Process a command from a staff member via WebSocket"""
+    services: ServiceContainer,
+    session_id: str,
+    customer_id: str,
+    action: str,
+    manager: ConnectionManager
+) -> None:
+    """Process administrative commands from staff members via WebSocket.
+    
+    Handles various session control commands including agent takeover and 
+    transfer operations. Validates command applicability, executes the 
+    appropriate action, and sends status notifications to clients.
+    
+    Supported commands:
+        1. "takeover" - Transfers control from bot to human agent
+        2. "transfer_to_bot" - Returns control from human agent to bot
+    
+    Workflow:
+        1. Retrieves or creates the session and chat history
+        2. Validates if the requested action is applicable to the current state
+        3. Executes the requested action if valid
+        4. Sends command result notification to staff interface
+        5. Broadcasts system messages to all session clients when appropriate
+    
+    Args:
+        services: Container with service dependencies for processing commands.
+        session_id: Unique identifier for the chat session.
+        customer_id: Unique identifier for the customer in the session.
+        action: The command action to perform
+            (e.g., "takeover", "transfer_to_bot").
+        manager: Connection manager class for broadcasting messages to
+            WebSocket clients.
+    
+    Raises:
+        Exception: Catches and logs any errors during command processing,
+                  sending error notifications to the staff interface.
+    """
     try:
         session = await services.get_or_create_session(session_id, customer_id)
         chat_history = await services.get_chat_history(session_id, customer_id)
@@ -218,11 +294,38 @@ async def websocket_endpoint(
     client_type: str, 
     services: ServiceContainer = Depends(get_websocket_service_container)
 ):
+    """Handles WebSocket connections for real-time chat functionality.
+    
+    Function responsibilities:
+        1. Manages real-time chat messaging via WebSocket connection
+        2. Works alongside HTTP API services where:
+        - API services handle: authentication, session creation, initial data
+            retrieval
+        - WebSocket handles: persistent real-time messaging
+    
+    Workflow:
+        1. Accepts WebSocket connection request
+        2. Connects client to session manager
+        3. Retrieves and sends initial chat history
+        4. Processes incoming messages in real-time loop
+        5. Handles different message types based on client_type
+    
+    Args:
+        websocket: The WebSocket connection object.
+        session_id: Unique identifier for the chat session (created via API
+            services).
+        client_type: Type of client connecting ("customer" or "staff").
+        services: Container with service dependencies for chat functionality.
+    
+    Raises:
+        WebSocketDisconnect: When the client disconnects from the WebSocket.
+        Exception: For any other errors that occur during WebSocket
+            communication.
+    """
     try:
         await websocket.accept()
         await manager.connect(websocket, session_id, client_type)
         
-        # Send initial chat history
         chat_history = await services.get_chat_history(session_id, None)
         recent_messages = await chat_history.get_recent_turns(20)
         
