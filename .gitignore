@@ -21,7 +21,7 @@ data/*
 !data/.gitkeep
 
 # evaluations
-evaluations/**
+evaluations/*
 !evaluations/ragas_reports/.gitkeep
 
 # Ignore requirements.txt file 
