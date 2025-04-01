@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime
 from typing import List, Dict, Optional
-from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import DESCENDING
 from src.backend.models.human_agent import ChatTurn, MessageRole
 
@@ -67,7 +66,7 @@ class ChatHistory:
                     "session_id": self.session_id
                 }
             }
-            from src.backend.websocket.manager import manager
+            from src.backend.api.websocket_manager import manager
             await manager.broadcast_to_session(self.session_id, message_data)
         except Exception as e:
             logger.error(f"Error adding turn to history: {str(e)}")

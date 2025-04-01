@@ -5,7 +5,7 @@ import json
 from starlette.websockets import WebSocketState
 from src.backend.api.deps import get_websocket_service_container
 from src.backend.chat.service_container import ServiceContainer
-from src.backend.websocket.manager import manager, ConnectionManager
+from src.backend.api.websocket_manager import manager, ConnectionManager
 from src.backend.api.utils_router import human_takeover
 from src.backend.models.human_agent import ToggleReason
 from src.backend.models.api import MessageRole, AgentType
