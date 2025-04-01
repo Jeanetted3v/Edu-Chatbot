@@ -173,7 +173,7 @@ Edu_chatbot/
 ├── assets/
 ├── config/
 ├── data/
-│   ├── data_to_ingest/
+│   ├── raw/
 │   └── embeddings/
 ├── dockerfiles/
 ├── src/
@@ -183,6 +183,7 @@ Edu_chatbot/
 │   │   ├── database/
 │   │   ├── dataloaders/
 │   │   ├── dataprocessor/
+│   │   ├── evaluation/
 │   │   ├── main/
 │   │   ├── models/
 │   │   ├── utils/
@@ -224,6 +225,7 @@ graph TD
     F1 --> F1G[models]
     F1 --> F1H[utils]
     F1 --> F1I[websocket]
+    F1 --> F1J[evaluation]
     
     F2 --> F2A[src]
     F2A --> F2A1[app]
@@ -290,6 +292,7 @@ graph TD
   - database/ - Database connections and models
   - dataloaders/ - Data loading utilities
   - dataprocessor/ - Data processing pipelines
+  - evaluation/ - Evaluation pipeline
   - main/ - Application entry points
   - models/ - ML/AI models
   - utils/ - Utility functions
@@ -307,7 +310,7 @@ graph TD
     
   - components/ - UI components
   - services/ - Frontend api
-  - page.tsx - Main entry point to frontenf components
+  - page.tsx - Main entry point to frontend components
   </details>
   </details>
   </details>
