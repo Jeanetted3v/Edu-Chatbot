@@ -20,6 +20,10 @@ venv/
 data/*
 !data/.gitkeep
 
+# evaluations
+evaluations/**
+!evaluations/ragas_report/.gitkeep
+
 # Ignore requirements.txt file 
 requirements.txt
 
