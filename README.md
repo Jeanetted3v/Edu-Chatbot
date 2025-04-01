@@ -31,8 +31,7 @@ Ensures quality customer service through a sophisticated handoff system that act
 
 
 ## Demo
-[Check out Edu Chatbot in action](https://github.com/Jeanetted3v/edu_chatbot/assets/demo-video.mp4)
-* [YouTube](https://youtu.be/nDMpLLQesEk)
+Check out Edu Chatbot in action: [YouTube](https://youtu.be/nDMpLLQesEk)
 
 The diagram below illustrates the complete interaction flow demonstrated in the video:
 ```mermaid
