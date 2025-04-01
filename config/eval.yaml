@@ -1,0 +1,6 @@
+session_chat_limit: 100
+session_customer_chat_limit: 100
+ragas_base_dir: ./evaluations/ragas
+session_ids:
+  session-49b20c52-154a-43ab-8fbb-bb6f77b89e64
+  session-60131a95-ff38-4036-919e-0b3f6bfbfb75
