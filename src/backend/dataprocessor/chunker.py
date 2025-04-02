@@ -1,9 +1,14 @@
 import logging
 from typing import List, Dict, Union
+import pandas as pd
 import tiktoken
 from omegaconf import DictConfig
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
+from src.backend.dataloaders.local_doc_loader import (
+    LoadedUnstructuredDocument,
+    LoadedStructuredDocument
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,27 +72,59 @@ class Chunker:
             # You might want to log this error
             # Return a default value or raise the exception
             raise
+
+    def _chunk_structured_doc(self, doc: pd.DataFrame, metadata: dict = None):
+        """Process structured data (DataFrame) by chunking rows."""
+        if metadata is None:
+            metadata = {}
+        logger.info(f"Metadata before chunking Structured data: {metadata}")
+        rows_threshold = metadata.get('rows_threshold', 50)
+        total_rows = len(doc)
+        logger.info(f"Total rows in DataFrame: {total_rows}")
+
+        if total_rows <= rows_threshold:
+            return {
+                'type': 'full',
+                'content': doc.to_dict(orient='records'),
+                'metadata': metadata
+            }
+
+        chunks = []
+        for index, row in doc.iterrows():
+            row_text = " ".join([
+                f"{col}: {str(val)}"
+                for col, val in row.items()
+            ])
+            chunk_metadata = {
+                **metadata,
+                'row_index': index,
+                'is_structured': True
+            }
+            chunks.append({
+                'content': row_text,
+                'metadata': chunk_metadata
+            })
+        logger.info(f"Structured data: {len(chunks)} chunks")
+        return {
+            'type': 'chunked',
+            'chunks': chunks,
+            'num_chunks': len(chunks)
+        }
     
-    def _chunk_single_doc(
-        self,
-        text: str,
-        model: str,
-        metadata: Dict = None
-    ) -> Dict:
-        """
-        Process a document based on its token count.
-        If token count > threshold: chunk and create embeddings
-        If token count <= threshold: save document directly without embedding
-        """
-        if not isinstance(text, str):
-            text = str(text)
+    def _chunk_unstructured_doc(
+        self, doc: str, model: str, metadata: dict = None
+    ):
+        """Process unstructured text data based on token count."""
+        if not isinstance(doc, str):
+            doc = str(doc)
         
         # Clean the text before processing
-        text = text.replace('\n', ' ')  # Replace newlines with spaces
+        text = doc.replace('\n', ' ')  # Replace newlines with spaces
         text = ' '.join(text.split())   # Normalize whitespace
 
         if metadata is None:
             metadata = {}
+        logger.info(f"Metadata before chunking Unstructured data: {metadata}")
 
         token_count = self._get_token_count(text, model)
         total_characters = len(text)
@@ -111,13 +148,13 @@ class Chunker:
             chunks = self.text_splitter.split_documents([doc])
 
             # Log chunk details
-            logger.info(f"Document chunked into {len(chunks)} pieces")
-             # Log first chunk details
+            logger.info(f"Unstructured data: {len(chunks)} chunks.")
+            # Log first chunk details
             if chunks:
                 first_chunk = chunks[0].page_content
                 first_chunk_chars = len(first_chunk)
                 first_chunk_tokens = self._get_token_count(first_chunk, model)
-                logger.info(f"First chunk: {first_chunk_tokens} tokens,"
+                logger.info(f"First chunk: {first_chunk_tokens} tokens, "
                             f"{first_chunk_chars} characters")
 
             return {
@@ -129,10 +166,22 @@ class Chunker:
                 'num_chunks': len(chunks)
             }
 
+    def _chunk_single_doc(
+        self,
+        doc: Union[str, pd.DataFrame],
+        model: str,
+        metadata: Dict = None
+    ) -> Dict:
+        """Process a document based on its type and token count."""
+        if isinstance(doc, pd.DataFrame):
+            return self._chunk_structured_doc(doc, metadata)
+        else:
+            return self._chunk_unstructured_doc(doc, model, metadata)
+
 
 def batch_chunk_doc(
     cfg: DictConfig,
-    documents: List[Union[str, Dict]]
+    documents: List[Union[LoadedUnstructuredDocument, LoadedStructuredDocument]]
 ) -> List[Dict]:
     """Process multiple documents."""
     chunker = Chunker(
@@ -142,16 +191,20 @@ def batch_chunk_doc(
     )
     chunked_doc = []
     for doc in documents:
-        if isinstance(doc, dict):
-            text = doc['content']
+        if hasattr(doc, 'content') and hasattr(doc, 'metadata'):
+            content = doc.content
+            metadata = doc.metadata
+        elif isinstance(doc, dict):
+            content = doc['content']
             metadata = doc.get('metadata', {})
         else:
-            text = doc
+            content = doc
             metadata = {}
         chunked_doc.append(chunker._chunk_single_doc(
-                                        text,
+                                        content,
                                         cfg.llm.model,
                                         metadata
                                         ))
-    logger.info(f"Processed {len(chunked_doc)} documents.")
+    logger.info(f"Total {len(chunked_doc)} chunks.")
+    logger.info(f"Chunked documents: {chunked_doc}")
     return chunked_doc

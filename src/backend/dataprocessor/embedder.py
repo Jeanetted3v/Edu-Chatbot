@@ -117,7 +117,7 @@ class Embedder:
                 )
 
 
-async def embed_doc(cfg: DictConfig, processed_docs: List[Dict]) -> None:
+async def embed_doc(cfg: DictConfig, chunked_docs: List[Dict]) -> None:
     logger.info("Starting document embedding process...")
     embedder = Embedder(cfg, cfg.embedder.persist_dir)
     embedding_fn = embedder._create_embedding_function(
@@ -134,12 +134,12 @@ async def embed_doc(cfg: DictConfig, processed_docs: List[Dict]) -> None:
 
     total_chunks = sum(
         len(doc['chunks']) if doc['type'] == 'chunked' else 1
-        for doc in processed_docs
+        for doc in chunked_docs
     )
-    logger.info(f"Processing {len(processed_docs)} documents"
+    logger.info(f"Processing {len(chunked_docs)} documents "
                 f"with total {total_chunks} chunks")
     try:
-        await embedder._store_processed_documents(processed_docs)
+        await embedder._store_processed_documents(chunked_docs)
         
         # Verify embeddings by checking collection count
         collection_count = embedder.collection.count()

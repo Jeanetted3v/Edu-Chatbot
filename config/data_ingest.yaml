@@ -14,13 +14,14 @@ gdrive:
 
 local_doc:
   paths:
-    - path: ./data/data_to_ingest/excel.xlsx
-      sheet: syn_data
+    - path: ./data/data_to_ingest/syn_data.xlsx
     - path: ./data/data_to_ingest/rag_qna.pdf
+  csv_dir: ./data/csv
+  rows_threshold: 2  # Default is 50, Set low for testing RAG
 
 chunker:
-  token_threshold: 500  # switch between RAG and long-context, set low for testing RAG
-  chunk_size: 500   # character count
+  token_threshold: 10  # switch between RAG and long-context, set low for testing RAG
+  chunk_size: 300   # character count
   chunk_overlap: 100  # character overlap
 
 embedder:
@@ -30,4 +31,5 @@ embedder:
   vector_store: chromadb
 
 defaults:
+  - _self_
   - extract_metadata

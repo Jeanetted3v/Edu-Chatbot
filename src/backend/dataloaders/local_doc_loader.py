@@ -27,9 +27,10 @@ class LoadedStructuredDocument:
 class LocalDocLoader:
     """Loads documents of various formats (PDF) into unified format."""
     @staticmethod
-    def convert_excel_to_csv(excel_path: str, sheet_name: str = None) -> str:
-        """
-        Convert Excel file to CSV and save in the same directory
+    def convert_excel_to_csv(
+        excel_path: str, csv_dir: str = "./data/csv"
+    ) -> List[str]:
+        """Convert Excel file to CSV and save in the same directory
         
         Args:
             excel_path: Path to the Excel file
@@ -38,18 +39,30 @@ class LocalDocLoader:
             Path to the saved CSV file
         """
         try:
-            directory = os.path.dirname(excel_path)
-            parent_directory = os.path.dirname(directory)
+            os.makedirs(csv_dir, exist_ok=True)
             base_name = os.path.splitext(os.path.basename(excel_path))[0]
-            sheet_suffix = f"_{sheet_name}" if sheet_name else ""
-            csv_path = os.path.join(
-                parent_directory, f"{base_name}{sheet_suffix}.csv")
-            
-            df = pd.read_excel(excel_path, sheet_name=sheet_name)
-            df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-            
-            logger.info(f"Successfully converted Excel to CSV: {csv_path}")
-            return csv_path
+
+            xls = pd.ExcelFile(excel_path)
+            sheet_names = xls.sheet_names
+
+            csv_paths = []
+
+            for sheet_name in sheet_names:
+                safe_sheet_name = "".join(
+                    c if c.isalnum() or c in ('-', '_') else '_'
+                    for c in sheet_name.lower()
+                )
+                csv_path = os.path.join(
+                    csv_dir,
+                    f"{base_name}_{safe_sheet_name}.csv"
+                )
+                df = pd.read_excel(excel_path, sheet_name=sheet_name)
+                df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                
+                logger.info(f"Successfully converted sheet '{sheet_name}' to CSV: "
+                            f"{csv_path}")
+                csv_paths.append(csv_path)
+            return csv_paths
             
         except Exception as e:
             logger.error(f"Error converting Excel to CSV: {str(e)}")
@@ -96,12 +109,11 @@ class LocalDocLoader:
         except Exception as e:
             raise ValueError(f"Error reading PDF {file_path}: {str(e)}")
     
-    def _load_document(self, cfg: DictConfig) -> Union[
+    def _load_document(self, cfg: DictConfig, path_cfg: DictConfig) -> Union[
         LoadedUnstructuredDocument,
-        LoadedStructuredDocument
+        List[LoadedStructuredDocument]
     ]:
-        """
-        Load a document and return its contents with metadata.
+        """Load a document and return its contents with metadata.
         
         Args:
             file_path: Path to the document file
@@ -113,7 +125,7 @@ class LocalDocLoader:
             ValueError: If file format is not supported
             FileNotFoundError: If file doesn't exist
         """
-        file_path = cfg.path
+        file_path = path_cfg.path
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
         
@@ -122,42 +134,63 @@ class LocalDocLoader:
         if file_ext == '.pdf':
             return self._load_pdf(file_path)
         elif file_ext in ['.xlsx', '.xls']:
-            if not hasattr(cfg, 'sheet'):
-                raise ValueError("Sheet name is required for Excel file")
-            self.convert_excel_to_csv(file_path, cfg.sheet)
+            csv_paths = self.convert_excel_to_csv(
+                file_path, cfg.local_doc.csv_dir
+            )
+            logger.info(f"Converted Excel file {file_path} to CSV: {csv_paths}")
+        elif file_ext == '.csv':
+            csv_paths = [file_path]
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
+
+        loaded_docs = []
+        for csv_path in csv_paths:
+            df = pd.read_csv(csv_path)
+            metadata = {
+                'source': file_path,
+                'type': 'structured',
+                'rows': len(df),
+                'columns': len(df.columns),
+                'rows_threshold': cfg.local_doc.rows_threshold,
+                'processing_type': (
+                    'full' if len(df) <= cfg.local_doc.rows_threshold
+                    else 'chunked'
+                )
+            }
+            loaded_docs.append(
+                LoadedStructuredDocument(
+                    content=df,
+                    metadata=metadata
+                )
+            )
+        return loaded_docs
 
 
 def load_local_doc(
     cfg: DictConfig
 ) -> List[Union[LoadedUnstructuredDocument, LoadedStructuredDocument]]:
-    """
-    Load documents from local filesystem based on configuration.
+    """Load documents from local filesystem based on configuration.
     
     Args:
         cfg: Hydra configuration object
-        doc_loader: Instance of DocLoader
         
     Returns:
         List of loaded documents
     """
     documents = []
-    
-    # Load documents from configured paths
-    for cfg in cfg.local_doc.paths:
+    paths = cfg.local_doc.paths
+    for path in paths:
         try:
             doc_loader = LocalDocLoader()
-            doc = doc_loader._load_document(cfg)
-            documents.append(doc)
-            logger.info(f"Successfully loaded document: {cfg['path']}")
-            
-            # Log preview and metadata
-            if isinstance(doc, LoadedUnstructuredDocument):
-                logger.debug(f"Content preview: {doc.content[:200]}...")
-                logger.debug(f"Metadata: {doc.metadata}")
-            
+            loaded_docs = doc_loader._load_document(cfg, path)
+
+            if isinstance(loaded_docs, list):
+                documents.extend(loaded_docs)
+            else:
+                documents.append(loaded_docs)
+            logger.info(f"Successfully loaded document: {path['path']}")
         except Exception as e:
-            logger.error(f"Error loading document {cfg['path']}: {str(e)}")
-            
+            logger.error(f"Error loading document {path['path']}: {str(e)}")
+    logger.info(f"Total {len(documents)} documents loaded.")
+    logger.info(f"Docs after loading: {documents}")
     return documents
