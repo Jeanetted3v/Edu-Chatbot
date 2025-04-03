@@ -115,9 +115,14 @@ class HybridRetriever:
             
         return sorted(search_results, key=lambda x: x.score, reverse=True)
     
-    def format_search_results(self, search_results: List[SearchResult]) -> str:
+    def format_search_results(
+        self, search_results: List[SearchResult]
+    ) -> tuple:
         """Format search results for inclusion in prompt context"""
         formatted_results = []
+        top_result = None
+        max_score = float('-inf')
+
         for result in search_results:
             formatted_result = {
                 'content': result.content,
@@ -129,5 +134,8 @@ class HybridRetriever:
                 }
             }
             formatted_results.append(formatted_result)
+        if result.score > max_score:
+            max_score = result.score
+            top_result = result.content
         
-        return json.dumps(formatted_results, indent=2)
+        return json.dumps(formatted_results, indent=2), top_result

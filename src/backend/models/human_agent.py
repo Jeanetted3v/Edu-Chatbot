@@ -11,7 +11,7 @@ class MessageRole(str, Enum):
     HUMAN_AGENT = "human_agent"
 
 
-class AgentType(Enum):
+class AgentType(str, Enum):
     BOT = "bot"
     HUMAN = "human"
 

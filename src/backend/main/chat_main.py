@@ -128,7 +128,7 @@ class CLITester:
 @hydra.main(
     version_base=None,
     config_path="../../../config",
-    config_name="chat")
+    config_name="config")
 def main(cfg) -> None:
     
     async def async_main():

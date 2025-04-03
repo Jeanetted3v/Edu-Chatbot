@@ -35,8 +35,8 @@ class ChatHistory:
         timestamp = datetime.now()
         try:
             role_str = (
-                role.value 
-                if isinstance(role, MessageRole) 
+                role.value
+                if isinstance(role, MessageRole)
                 else str(role).lower()
             )
             turn = ChatTurn(

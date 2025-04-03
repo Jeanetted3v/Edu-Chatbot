@@ -1,5 +1,7 @@
 import logging
-from typing import Tuple
+from typing import Tuple, Optional
+from pydantic import BaseModel
+from pydantic_ai import Agent
 from src.backend.models.human_agent import (
     AgentDecision,
     ToggleReason,
@@ -10,13 +12,28 @@ from src.backend.models.human_agent import (
 logger = logging.getLogger(__name__)
 
 
+class QueryHandlerResponse(BaseModel):
+    """Response model for query handler"""
+    response: str
+    intent: str
+    english_level: Optional[str]
+    course_interest: Optional[str]
+    lexile_level: Optional[str]
+
+
 class QueryHandler:
     def __init__(self, services):
         """Initialize QueryHandler with all class instances from services"""
         self.services = services
         self.cfg = services.cfg
         self.mongo_client = services.mongodb_client.client
-
+        self.agent = Agent(
+            # self.cfg.query_handler.llm,
+            'openai:gpt-4o-mini',
+            result_type=QueryHandlerResponse,
+            system_prompt=self.cfg.query_handler_prompts['sys_prompt'],
+        )
+    
     async def analyze_sentiment(
         self, session_id: str, customer_id: str, message: str, total_count: int
     ) -> Tuple[dict, AgentDecision]:
@@ -77,10 +94,10 @@ class QueryHandler:
         should_transfer = (
             needs_human or
             (
-            analysis_result.score < 
-            self.services.human_handler.cfg.human_agent.sentiment_threshold and 
-            analysis_result.confidence > 
-            self.services.human_handler.cfg.human_agent.confidence_threshold
+                analysis_result.score <
+                self.services.human_handler.cfg.human_agent.sentiment_threshold and
+                analysis_result.confidence >
+                self.services.human_handler.cfg.human_agent.confidence_threshold
             )
         )
         
@@ -102,16 +119,7 @@ class QueryHandler:
     async def handle_query(
         self, query: str, session_id: str, customer_id: str
     ) -> str:
-        """Main entry point for handling user queries.
-        
-        Flow:
-        1. Initialize/retrieve session and chat history
-        2. Analyze sentiment and check if should transfer to human
-        3. Classify intent (may require multiple turns for missing info)
-           - If missing info, return response asking for it
-           - When user responds, a new call to handle_query will process the new info
-        4. Once intent is fully classified, process the query and respond
-        """
+        """Main entry point for handling user queries."""
         try:
             session = await self.services.get_or_create_session(
                 session_id, customer_id
@@ -176,30 +184,28 @@ class QueryHandler:
             # Prepare message history for the intent classifier
             msg_history = await chat_history.format_history_for_prompt()
             logger.info(f"Msg History b4 intent classification: {msg_history}")
-            intent_result = await self.services.intent_classifier.classify_intent(
-                query, msg_history
-            )
-            intent_data = intent_result.data
-            logger.info(f"Intent data: {intent_data}")
 
-            # If we need more information before we can classify intent
-            if intent_data.missing_info:
-                response = intent_data.response
-                logger.info(f"Missing information, asking user: {response}")
-                await chat_history.add_turn(MessageRole.BOT, response)
-                return response
-            
-            logger.info(f"Intent classified: {intent_data.intent}")
-            
-            # Step 3: Handle course query
-            msg_history = await chat_history.format_history_for_prompt()
-            logger.info(f"Message History b4 course handler: {msg_history}")
-            response = await self.services.course_service.handle_course_query(
-                intent_data,
-                msg_history
+            search_results = await self.services.hybrid_retriever.search(query)
+            formatted_search_results, top_result = (
+                self.services.hybrid_retriever.format_search_results(
+                    search_results
+                )
             )
-            logger.info(f"Response: {response}")
-            await chat_history.add_turn(MessageRole.BOT, response)
+            logger.info(f"Search results: {top_result}")
+
+            
+            # Single llm call to get response
+            result = await self.agent.run(
+                self.cfg.query_handler_prompts['user_prompt'].format(
+                    query=query,
+                    message_history=msg_history,
+                    search_results=top_result
+                )
+            )
+            response = result.data.response
+            logger.info(f"Agent output: {result.data}")
+            # response = agent_output.response
+            # await chat_history.add_turn(MessageRole.BOT, response)
             return response
                 
         except Exception as e:

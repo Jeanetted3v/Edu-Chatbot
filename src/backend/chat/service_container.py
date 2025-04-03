@@ -2,9 +2,7 @@ from datetime import datetime
 import logging
 from uuid import uuid4
 from src.backend.database.mongodb_client import MongoDBClient
-from src.backend.chat.intent_classifier import IntentClassifier
 from src.backend.chat.hybrid_retriever import HybridRetriever
-from src.backend.chat.course_service import CourseService
 from src.backend.chat.sentiment_analyzer import SentimentAnalyzer
 from src.backend.chat.msg_analyzer import MessageAnalyzer
 from src.backend.chat.human_agent_handler import HumanAgentHandler
@@ -26,9 +24,7 @@ class ServiceContainer:
         self.db = None
         self.sessions_collection = None
         self.chat_history_collection = None
-        self.intent_classifier = None
         self.hybrid_retriever = None
-        self.course_service = None
         self.sentiment_analyzer = None
         self.message_analyzer = None
         self.human_handler = None
@@ -48,9 +44,7 @@ class ServiceContainer:
             self.sessions_collection = self.db[
                 self.cfg.mongodb.session_collection
             ]
-            self.intent_classifier = IntentClassifier(self.cfg)
             self.hybrid_retriever = HybridRetriever(self.cfg)
-            self.course_service = CourseService(self)
             self.sentiment_analyzer = SentimentAnalyzer(self.cfg)
             self.message_analyzer = MessageAnalyzer(self)
             self.human_handler = HumanAgentHandler(self)
@@ -71,7 +65,9 @@ class ServiceContainer:
             )
         return self.chat_histories[session_id]
     
-    async def get_or_create_session(self, session_id: str, customer_id: str) -> ChatSession:
+    async def get_or_create_session(
+        self, session_id: str, customer_id: str
+    ) -> ChatSession:
         """Get existing session or create a new one"""
         if session_id in self.active_sessions:
             session = self.active_sessions[session_id]
@@ -94,7 +90,7 @@ class ServiceContainer:
                 session = ChatSession(
                     session_id=db_session["session_id"],
                     customer_id=db_session["customer_id"],
-                    current_agent=db_session.get("current_agent", AgentType.BOT),
+                    current_agent=db_session.get("current_agent", "bot").lower(),
                     start_time=db_session.get("start_time", datetime.now()),
                     last_interaction=datetime.now(),
                     message_count=db_session.get("message_count", 0)
