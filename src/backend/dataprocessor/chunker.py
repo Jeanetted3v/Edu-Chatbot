@@ -3,12 +3,12 @@ from typing import List, Dict, Union
 import pandas as pd
 import tiktoken
 from omegaconf import DictConfig
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from src.backend.dataloaders.local_doc_loader import (
     LoadedUnstructuredDocument,
     LoadedStructuredDocument
 )
+from src.backend.dataprocessor.chunking_strategy import ChunkingStrategyFactory
 
 logger = logging.getLogger(__name__)
 
@@ -17,13 +17,16 @@ class Chunker:
     def __init__(
         self,
         token_threshold: int,
-        chunk_size: int,
-        chunk_overlap: int
+        chunking_config: Dict
     ):
         self.token_threshold = token_threshold
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
+        self.chunking_config = chunking_config
         self.encoders = {}  # Cache for encoders
+        self.chunking_strategy = chunking_config.get('strategy', 'recursive')
+        self.chunking_strategy = ChunkingStrategyFactory.create_strategy(
+            self.chunking_strategy,
+            chunking_config
+        )
     
     def _tokenizer(self, model: str) -> tiktoken.Encoding:
         """Get or create a token encoder for the specified model."""
@@ -33,27 +36,6 @@ class Chunker:
             except KeyError:
                 self.encoders[model] = tiktoken.get_encoding("cl100k_base")
         return self.encoders[model]
-
-    @property
-    def text_splitter(self):
-        """Lazy initialization of text splitter."""
-        if not hasattr(self, '_text_splitter'):
-            self._text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=self.chunk_size,
-                chunk_overlap=self.chunk_overlap,
-                length_function=len,
-                separators=[
-                    "\n\n", "\n",
-                    "。", "！", "？",  # Chinese
-                    ". ", "! ", "? ",  # English
-                    "；", "：", "，", "、",  # Chinese
-                    "; ", ": ", ", ",  # English
-                    "\u200b", "\uff0c", "\u3001", "\uff0e", "\u3002",  # Special characters
-                    " ", ""
-                ],
-                keep_separator=True
-            )
-        return self._text_splitter
 
     def _get_token_count(self, text: str, model: str) -> int:
         """Count tokens in a text using tiktoken."""
@@ -68,9 +50,7 @@ class Chunker:
             encoder = self._tokenizer(model)
             return len(encoder.encode(text))
         except Exception as e:
-            print(f"Error encoding text: {str(e)}")
-            # You might want to log this error
-            # Return a default value or raise the exception
+            logger.error(f"Error encoding text: {str(e)}")
             raise
 
     def _chunk_structured_doc(self, doc: pd.DataFrame, metadata: dict = None):
@@ -97,8 +77,10 @@ class Chunker:
             ])
             chunk_metadata = {
                 **metadata,
-                'row_index': index,
-                'is_structured': True
+                'is_structured': True,
+                'chunk_type': 'row',
+                'chunk_index': index,
+                'total_chunks': total_rows
             }
             chunks.append({
                 'content': row_text,
@@ -145,10 +127,17 @@ class Chunker:
             # Large documents: chunk using LangChain's splitter
             # Create a LangChain Document to use with the splitter
             doc = Document(page_content=text, metadata=metadata)
-            chunks = self.text_splitter.split_documents([doc])
+            chunks = self.chunking_strategy.split_documents([doc])
+            logger.info(f"Unstructured data: {len(chunks)} chunks using "
+                        f"{self.chunking_strategy.strategy_name} strategy")
+            for chunk in chunks:
+                chunk.metadata.update({
+                    'is_structured': False,
+                    'chunk_type': f"{self.chunking_strategy}",
+                    'chunk_index': chunk.metadata.get('chunk_index', 0),
+                    'total_chunks': len(chunks)
+                })
 
-            # Log chunk details
-            logger.info(f"Unstructured data: {len(chunks)} chunks.")
             # Log first chunk details
             if chunks:
                 first_chunk = chunks[0].page_content
@@ -163,7 +152,8 @@ class Chunker:
                     'content': chunk.page_content,
                     'metadata': chunk.metadata
                 } for chunk in chunks],
-                'num_chunks': len(chunks)
+                'num_chunks': len(chunks),
+                'chunking_strategy': self.chunking_strategy.strategy_name
             }
 
     def _chunk_single_doc(
@@ -183,14 +173,40 @@ def batch_chunk_doc(
     cfg: DictConfig,
     documents: List[Union[LoadedUnstructuredDocument, LoadedStructuredDocument]]
 ) -> List[Dict]:
-    """Process multiple documents."""
+    """Entry point for chunking documents.
+    Args:
+        cfg (DictConfig): Configuration object.
+        documents (List[Union[LoadedUnstructuredDocument,
+            LoadedStructuredDocument]]):
+            List of documents to chunk.
+            
+    Returns:
+        List[Dict]: List of chunked documents.
+    """
+    chunking_config = {
+        'strategy': cfg.chunker.get('strategy', 'recursive'),
+        'chunk_size': cfg.chunker.recursive.chunk_size,
+        'chunk_overlap': cfg.chunker.recursive.chunk_overlap,
+        'embedding_model': cfg.chunker.get(
+            'embedding_model', 'text-embedding-3-small'
+        ),
+        'buffer_size': cfg.chunker.semantic.get('buffer_size', 1),
+        'breakpoint_threshold_type': cfg.chunker.semantic.get(
+            'breakpoint_threshold_type', 'percentile'
+        ),
+        'breakpoint_threshold_amount': cfg.chunker.semantic.get(
+            'breakpoint_threshold_amount', 95.0
+        ),
+        'min_chunk_size': cfg.chunker.semantic.get('min_chunk_size', None),
+    }
     chunker = Chunker(
         token_threshold=cfg.chunker.token_threshold,
-        chunk_size=cfg.chunker.chunk_size,
-        chunk_overlap=cfg.chunker.chunk_overlap
+        chunking_config=chunking_config
     )
+
     chunked_doc = []
-    for doc in documents:
+    detailed_chunk_info = []
+    for i, doc in enumerate(documents):
         if hasattr(doc, 'content') and hasattr(doc, 'metadata'):
             content = doc.content
             metadata = doc.metadata
@@ -200,11 +216,26 @@ def batch_chunk_doc(
         else:
             content = doc
             metadata = {}
-        chunked_doc.append(chunker._chunk_single_doc(
-                                        content,
-                                        cfg.llm.model,
-                                        metadata
-                                        ))
-    logger.info(f"Total {len(chunked_doc)} chunks.")
-    logger.info(f"Chunked documents: {chunked_doc}")
+
+        chunked_result = chunker._chunk_single_doc(
+            content, cfg.llm.model, metadata
+        )
+        chunked_doc.append(chunked_result)
+        
+        # Collect detailed chunk information
+        detailed_chunk_info.append({
+            'document_index': i,
+            'total_chunks': len(chunked_result['chunks']),
+            # 'chunk_contents': [chunk['content'][:100] + '...' for chunk in chunked_result['chunks']]
+        })
+    
+    # Log detailed chunk information
+    logger.info("Detailed Chunk Information:")
+    for info in detailed_chunk_info:
+        logger.info(f"Document {info['document_index']}: "
+                    f"{info['total_chunks']} chunks")
+    
+    total_chunks = sum(len(doc['chunks']) for doc in chunked_doc)
+    logger.info(f"Total {total_chunks} chunks.")
+    
     return chunked_doc

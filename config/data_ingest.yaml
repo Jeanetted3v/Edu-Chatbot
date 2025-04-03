@@ -21,14 +21,29 @@ local_doc:
 
 chunker:
   token_threshold: 10  # switch between RAG and long-context, set low for testing RAG
-  chunk_size: 300   # character count
-  chunk_overlap: 100  # character overlap
+  strategy: "semantic"  # Chunking strategy selection. Options: "recursive" or "semantic"
+  embedding_model: text-embedding-3-small
+  recursive:
+    chunk_size: 300   # character count
+    chunk_overlap: 100  # character overlap
+  semantic:
+    buffer_size: 1  # contextual buffer for semantic chunking
+    breakpoint_threshold_type: percentile  #Options: 'percentile', 'standard_deviation', 'interquartile', 'gradient' 
+    breakpoint_threshold_amount: 50.0  # Bigger the number, the smaller the chunks
+    min_chunk_size: 200
+# Alternative configuration for recursive chunking:
+# chunker:
+#   token_threshold: 10
+#   strategy: "recursive"
+#   chunk_size: 300
+#   chunk_overlap: 100
 
 embedder:
   similarity_metric: cosine  # cosine(default), L2, ip(Inner Product)
   persist_dir: ./data/embeddings
   collection: syn_data
   vector_store: chromadb
+  embedding_model: text-embedding-3-small
 
 defaults:
   - _self_
