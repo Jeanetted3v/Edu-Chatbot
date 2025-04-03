@@ -36,38 +36,38 @@ Check out Edu Chatbot in action: [YouTube](https://youtu.be/nDMpLLQesEk)
 The diagram below illustrates the complete interaction flow demonstrated in the video:
 ```mermaid
 flowchart TD
-    Start([Demo Start]) --> A
-    A["Customer: Inquiries about courses"] --> B
-    B["Chatbot: Intent Classification & Information Gathering"]
-    
-    B --> C1["Chatbot: Asks customer about age of student"]
-    C1 --> C2["Customer: Provides age"]
-    B --> C3["Chatbot: Asks customer about interest of student"]
-    C3 --> C4["Customer: Shares interests"]
-    
-    C2 --> D["Chatbot: Course Recommendation with details - Description, Teacher info, Pricing, Schedule"]
-    C4 --> D
-    
-    D --> E["Customer: Expresses concern about price and requests discount"]
-    E --> E2["Chatbot: Not authorized to offer discounts"]
-    
-    E2 --> F["Support Staff: Notices situation and clicks the Take Over button"]
-    F --> F2["Staff: Offers special discount"]
-    
-    F2 --> G["Customer: Accepts discounted offer"]
-    G --> G1["Staff: Toggles back to chatbot"]
-    G1 --> G2["Chatbot: Proceeds with enrollment"]
-    G2 --> End([Enrollment Complete])
-    
-    classDef customer fill:#f9d5e5,stroke:#333,color:#000
-    classDef chatbot fill:#e0f0ff,stroke:#333,color:#000
-    classDef staff fill:#d5f9e5,stroke:#333,color:#000
-    classDef endpoint fill:#f5f5f5,stroke:#333,color:#000
-    
-    class A,C2,C4,E,G customer
-    class B,C1,C3,D,E2,G2 chatbot
-    class F,F2,G1 staff
-    class Start,End endpoint
+  Start([Demo Start]) --> A
+  A["Customer: Inquiries about courses"] --> B
+  B["Chatbot: Intent Classification & Information Gathering"]
+  
+  B --> C1["Chatbot: Asks customer about age of student"]
+  C1 --> C2["Customer: Provides age"]
+  B --> C3["Chatbot: Asks customer about interest of student"]
+  C3 --> C4["Customer: Shares interests"]
+  
+  C2 --> D["Chatbot: Course Recommendation with details - Description, Teacher info, Pricing, Schedule"]
+  C4 --> D
+  
+  D --> E["Customer: Expresses concern about price and requests discount"]
+  E --> E2["Chatbot: Not authorized to offer discounts"]
+  
+  E2 --> F["Support Staff: Notices situation and clicks the Take Over button"]
+  F --> F2["Staff: Offers special discount"]
+  
+  F2 --> G["Customer: Accepts discounted offer"]
+  G --> G1["Staff: Toggles back to chatbot"]
+  G1 --> G2["Chatbot: Proceeds with enrollment"]
+  G2 --> End([Enrollment Complete])
+  
+  classDef customer fill:#f9d5e5,stroke:#333,color:#000
+  classDef chatbot fill:#e0f0ff,stroke:#333,color:#000
+  classDef staff fill:#d5f9e5,stroke:#333,color:#000
+  classDef endpoint fill:#f5f5f5,stroke:#333,color:#000
+  
+  class A,C2,C4,E,G customer
+  class B,C1,C3,D,E2,G2 chatbot
+  class F,F2,G1 staff
+  class Start,End endpoint
 ```
 
 
@@ -115,7 +115,7 @@ embedder:
   vector_store: chromadb
 ```
 
-### Data Configuration - Gdrive
+### Data Configuration - Gdrive (Temporarily disabled)
 * Or configure Google Drive access
 * Generate and download Google Drive API credentials JSON file
 * Place your credentials file in a secure location
@@ -148,6 +148,7 @@ gdrive_doc:
 
 **<span style="color:#F4B400">✂️ Chunking</span>**
 - Langchain is used for chunking for the RAG pipeline.
+- Currently support RecursiveCharacter and SemanticChunker, configurable in config/data_ingest.yaml
 
 **<span style="color:#DB4437">🔍 Embedding & Vector Database</span>**
 - Implements ChromaDB for lightweight, high-performance vector storage.
@@ -160,11 +161,22 @@ gdrive_doc:
 **<span style="color:#FF9800">💾 Saved Chat History</span>**
 - All chat histories are saved in MongoDB, which allows for tracing, further analysis and prompt enhancements.
 
+<span style="color:#E91E63">📊 Evaluation</span>
+- Metrics include answer relevancy, faithfulness, context precision and answer correctness.
+- Evaluation results are logged for continuous improvement of the system.
+
+
 ## Future Enhancements
 **Multi-Channel Integration**
 - Implement direct integration with WhatsApp, WeChat, Telegram, and other messaging platforms
 - Develop a unified API layer for consistent experience across all communication channels
 - Enable channel-specific customizations while maintaining core functionality
+
+**Vector Database**
+- To support more types of vector database
+
+**LLM Models**
+- To support more LLM models
 
 ## Project Structure
 ### ASCII Directory Tree (Complete Structure)
@@ -329,7 +341,8 @@ graph TD
 **<span style="color:#3F51B5">📁 GoogleDriveAPI</span>**: Remote data access and integration  
 **<span style="color:#00BCD4">⚡ FastAPI</span>**: Backend API framework  
 **<span style="color:#795548">⚛️ NodeJS/React</span>**: Frontend interface  
-**<span style="color:#607D8B">🐳 Docker</span>**: Containerization and deployment
+**<span style="color:#607D8B">🐳 Docker</span>**: Containerization and deployment  
+**<span style="color:#E91E63">📊 RAGAS</span>**: RAG evaluation framework for measuring relevancy, faithfulness and correctness
 
 
 ## Contributing
