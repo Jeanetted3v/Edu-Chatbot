@@ -8,7 +8,7 @@ from src.backend.dataloaders.local_doc_loader import (
     LoadedUnstructuredDocument,
     LoadedStructuredDocument
 )
-from src.backend.dataprocessor.chunking_strategy import ChunkingStrategyFactory
+from src.backend.dataprocessor.chunker_factory import ChunkingStrategyFactory
 
 logger = logging.getLogger(__name__)
 
