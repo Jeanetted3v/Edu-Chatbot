@@ -7,7 +7,8 @@ from src.backend.models.human_agent import (
     ToggleReason,
     AgentType,
     MessageRole
-)\
+)
+from src.backend.utils.llm_model_factory import LLMModelFactory
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,11 @@ class QueryHandler:
         self.services = services
         self.cfg = services.cfg
         self.mongo_client = services.mongodb_client.client
+        model_config = dict(self.cfg.query_handler.llm)
+        model = LLMModelFactory.create_model(model_config)
+        logger.info(f"LLM model instance created: {model}")
         self.agent = Agent(
-            # self.cfg.query_handler.llm,
-            'openai:gpt-4o-mini',
+            model=model,
             result_type=QueryHandlerResponse,
             system_prompt=self.cfg.query_handler_prompts['sys_prompt'],
         )

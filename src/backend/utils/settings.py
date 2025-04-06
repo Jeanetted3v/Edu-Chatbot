@@ -17,14 +17,15 @@ class Settings(BaseSettings):
     }
     CONFIG_DIR: str = "../../config"
 
-    OPENAI_API_KEY: str
-
     GOOGLE_CREDENTIALS_PATH: str
     GOOGLE_SPREADSHEET_ID: str
     GOOGLE_CLOUD_PROJECT_ID: str
     MONGODB_URI: str
-    # MONGODB_USERNAME: str
-    # MONGODB_PASSWORD: str
-
+    OPENAI_API_KEY: str
+    AZURE_ENDPOINT: str
+    AZURE_API_KEY: str
+    ANTHROPIC_API_KEY: str
+    GEMINI_API_KEY: str
+    
 
 SETTINGS = Settings()

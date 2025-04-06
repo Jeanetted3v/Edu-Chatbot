@@ -15,21 +15,25 @@ mongodb:
   session_collection: sessions
   timeout_hours: 0.1
 
+# for general usage (sentiment analysis, etc.)
 llm:
   provider: OpenAI
   model: gpt-4o-mini
   embedding_model: text-embedding-3-small
 
 query_handler:
-  llm: 'openai:gpt-4o-mini'
-
+  llm:
+    provider: azure_async  # openai, openai_async, azure, azure_async, google-gla, anthropic
+    model_name: gpt-4o-mini # gpt-4o, claude-3-5-sonnet-latest, gemini-2.0-flash, etc
+    api_version: 2024-09-01-preview  # for AzureOpenAI
+  
 human_agent:
   sentiment_threshold: 0.4
   confidence_threshold: 0.7
 
 msg_analyzer:
   analysis_interval: 5
-  min_message_length: 10
+  min_message_length: 50  # set to a higher value during dev stage
   trigger_patterns:
     urgency: '\b(urgent|asap|emergency|immediately)\b'
     frustration: '\b(frustrated?|annoyed|angry|upset)\b'
@@ -47,8 +51,7 @@ api:
 
 defaults:
   - _self_ 
-  - course_service_prompts
-  - intent_classifier_prompts
   - sentiment_analyzer_prompts
   - human_agent_prompts
   - query_handler_prompts
+
