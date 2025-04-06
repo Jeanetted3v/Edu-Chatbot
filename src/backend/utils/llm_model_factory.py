@@ -15,6 +15,7 @@ class LLMModelFactory:
         
         Args:
             config: Configuration object with model settings
+                (model_config) containing 'provider' and 'model_name'.
             
         Returns:
             A configured model instance for PydanticAI
@@ -24,14 +25,12 @@ class LLMModelFactory:
 
         if provider_type == 'openai':
             return OpenAIModel(model_name)
-            
         elif provider_type == 'openai_async':
             client = AsyncOpenAI()
             return OpenAIModel(
                 model_name,
                 provider=OpenAIProvider(openai_client=client)
             )
-            
         elif provider_type == 'azure':
             client = AsyncAzureOpenAI(
                 azure_endpoint=SETTINGS.AZURE_ENDPOINT,
@@ -42,7 +41,6 @@ class LLMModelFactory:
                 model_name,
                 provider=OpenAIProvider(openai_client=client)
             )
-            
         elif provider_type == 'azure_async':
             client = AsyncAzureOpenAI(
                 azure_endpoint=SETTINGS.AZURE_ENDPOINT,
@@ -53,14 +51,10 @@ class LLMModelFactory:
                 model_name,
                 provider=OpenAIProvider(openai_client=client)
             )
-            
         elif provider_type == 'anthropic':
-            # Uses ANTHROPIC_API_KEY from environment by default
             return AnthropicModel(model_name)
-        # gemini    
         elif provider_type == 'gemini':
             return GeminiModel(model_name)
-        # deepseek
             
         else:
             raise ValueError(f"Unsupported provider type: {provider_type}")
