@@ -134,8 +134,8 @@ class HybridRetriever:
                 }
             }
             formatted_results.append(formatted_result)
-        if result.score > max_score:
-            max_score = result.score
-            top_result = result.content
+            if result.score > max_score:
+                max_score = result.score
+                top_result = result.content
         
         return json.dumps(formatted_results, indent=2), top_result
