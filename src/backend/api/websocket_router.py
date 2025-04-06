@@ -16,12 +16,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+
 async def handle_customer_message(
     services: ServiceContainer,
     session_id: str,
     customer_id: str,
     content: str,
-    manager: ConnectionManager
+    manager: ConnectionManager,
+    message_time: datetime = None
 ) -> None:
     """Process a message from a customer, broadcast responses to all clients.
     
@@ -44,6 +46,9 @@ async def handle_customer_message(
         The broadcast_to_session function forwards messages to all clients 
         (both customer and staff interfaces) connected to the same chat session.
     """
+    if message_time is None:
+        message_time = datetime.now()
+
     response = await services.query_handler.handle_query(
         content,
         session_id,
@@ -63,7 +68,7 @@ async def handle_customer_message(
             "message": {
                 "role": MessageRole.USER,
                 "content": content,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": message_time.isoformat(),
                 "session_id": session_id,
                 "customer_id": customer_id
             }
@@ -77,7 +82,7 @@ async def handle_customer_message(
             "message": {
                 "role": response_role,
                 "content": response,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": message_time.isoformat(),
                 "session_id": session_id,
                 "customer_id": customer_id
             }
@@ -90,7 +95,9 @@ async def handle_staff_message(
     session_id: str,
     customer_id: str,
     content: str,
-    manager: ConnectionManager
+    manager: ConnectionManager,
+    client_message_id: str = None,
+    message_time: datetime = None
 ) -> None:
     """Process a message from a staff member, broadcast it to all clients.
     
@@ -108,6 +115,9 @@ async def handle_staff_message(
         content: The text content of the staff member's message.
         manager: Connection manager class for broadcasting messages to
             WebSocketclients.
+        client_message_id: Optional unique identifier for the message sent by
+            the staff member. This can be used for tracking or referencing
+            specific messages in the chat history.
     
     Note:
         If the session is currently in bot mode, this function will
@@ -115,7 +125,10 @@ async def handle_staff_message(
     """
     session = await services.get_or_create_session(session_id, customer_id)
     chat_history = await services.get_chat_history(session_id, customer_id)
-    
+
+    if message_time is None:
+        message_time = datetime.now()
+
     # Ensure session is in human agent mode
     if session.current_agent != AgentType.HUMAN:
         await human_takeover(
@@ -124,23 +137,28 @@ async def handle_staff_message(
             services=services
         )
     
-    await chat_history.add_turn(MessageRole.HUMAN_AGENT, content)
-    session.last_interaction = datetime.now()
+    await chat_history.add_turn(
+        MessageRole.HUMAN_AGENT,
+        content,
+        timestamp=message_time
+    )
+    session.last_interaction = message_time.isoformat()
     
     # Broadcast the staff message to all connections
-    await manager.broadcast_to_session(
-        session_id,
-        {
-            "type": "new_message",
-            "message": {
-                "role": MessageRole.HUMAN_AGENT,
-                "content": content,
-                "timestamp": datetime.now().isoformat(),
-                "session_id": session_id,
-                "customer_id": customer_id
-            }
+    message_data = {
+        "type": "new_message",
+        "message": {
+            "role": MessageRole.HUMAN_AGENT,
+            "content": content,
+            "timestamp": message_time.isoformat(),
+            "session_id": session_id,
+            "customer_id": customer_id
         }
-    )
+    }
+    
+    if client_message_id:
+        message_data["client_message_id"] = client_message_id
+    await manager.broadcast_to_session(session_id, message_data)
 
 
 async def handle_command(
@@ -148,7 +166,8 @@ async def handle_command(
     session_id: str,
     customer_id: str,
     action: str,
-    manager: ConnectionManager
+    manager: ConnectionManager,
+    message_time: datetime = None
 ) -> None:
     """Process administrative commands from staff members via WebSocket.
     
@@ -256,7 +275,7 @@ async def handle_command(
                     "message": {
                         "role": "SYSTEM",
                         "content": transfer_message,
-                        "timestamp": datetime.now().isoformat(),
+                        "timestamp": message_time.isoformat(),
                         "session_id": session_id,
                         "customer_id": customer_id
                     }
@@ -291,6 +310,7 @@ async def handle_command(
 async def websocket_endpoint(
     websocket: WebSocket, 
     session_id: str,
+    customer_id: str,
     client_type: str, 
     services: ServiceContainer = Depends(get_websocket_service_container)
 ):
@@ -325,9 +345,15 @@ async def websocket_endpoint(
     try:
         await websocket.accept()
         await manager.connect(websocket, session_id, client_type)
-        
-        chat_history = await services.get_chat_history(session_id, None)
+        await services.get_or_create_session(session_id, customer_id)
+        chat_history = await services.get_chat_history(session_id, customer_id)
         recent_messages = await chat_history.get_recent_turns(20)
+
+        # Filter messages to ensure they belong to this session
+        filtered_messages = [
+            msg for msg in recent_messages 
+            if msg.get("session_id") == session_id
+        ]
         
         # Preparing chat history in a format that frontend can easily use
         formatted_messages = [
@@ -342,9 +368,10 @@ async def websocket_endpoint(
             "customer_id": msg.get("customer_id", ""),
             "session_id": msg.get("session_id", "")
             }
-            for msg in recent_messages
+            for msg in filtered_messages
         ]
         
+        # Send the initial chat history to the newly connected client
         await websocket.send_json({
             "type": "history",
             "messages": formatted_messages
@@ -360,14 +387,19 @@ async def websocket_endpoint(
             if message_data.get("type") == "message":
                 content = message_data.get("content")
                 customer_id = message_data.get("customer_id", "")
+                client_message_id = message_data.get("client_message_id", None)
+                # Generate a single timestamp for consistency
+                message_time = datetime.now()
                 
                 if client_type == "customer":
                     await handle_customer_message(
-                        services, session_id, customer_id, content, manager
+                        services, session_id, customer_id, content, manager,
+                        message_time
                     )
                 elif client_type == "staff":
                     await handle_staff_message(
-                        services, session_id, customer_id, content, manager
+                        services, session_id, customer_id, content, manager,
+                        client_message_id, message_time
                     )
             elif (
                 message_data.get("type") == "command" 
@@ -377,7 +409,8 @@ async def websocket_endpoint(
                 action = message_data.get("action")
                 customer_id = message_data.get("customer_id", "")
                 await handle_command(
-                    services, session_id, customer_id, action, manager
+                    services, session_id, customer_id, action, manager,
+                    message_time
                 )
             
     except WebSocketDisconnect:

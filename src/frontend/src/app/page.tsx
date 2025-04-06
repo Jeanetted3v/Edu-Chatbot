@@ -55,7 +55,11 @@ export default function ChatDemoPage() {
     const pollInterval = setInterval(async () => {
       try {
         const sessions = await ApiService.getActiveSessions();
-        setActiveSessions(sessions);
+        setActiveSessions(prev => {
+          // Only update if there are changes to avoid unnecessary re-renders
+          const hasChanged = JSON.stringify(prev) !== JSON.stringify(sessions);
+          return hasChanged ? sessions : prev;
+        });
       } catch (err) {
         console.error('Error polling sessions:', err);
       }
@@ -116,6 +120,7 @@ export default function ChatDemoPage() {
               <h3 className="font-medium">Support Dashboard</h3>
             </div>
             <StaffChat 
+              key={`staff-${sessionId}-${customerId}`} 
               selectedSession={{
                 session_id: sessionId,
                 customer_id: customerId,

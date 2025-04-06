@@ -52,37 +52,37 @@ async def human_takeover(
     return takeover_message
 
 
-@router.get("/chat/history")
-async def get_chat_history(
-    session_id: str,
-    customer_id: str,
-    limit: int = Query(20, ge=1, le=100),
-    services: ServiceContainer = Depends(get_service_container)
-):
-    """Get conversation history for a session (staff view)"""
+# @router.get("/chat/history")
+# async def get_chat_history(
+#     session_id: str,
+#     customer_id: str,
+#     limit: int = Query(20, ge=1, le=100),
+#     services: ServiceContainer = Depends(get_service_container)
+# ):
+#     """Get conversation history for a session (staff view)"""
     
-    try:
-        chat_history = await services.get_chat_history(session_id, customer_id)
-        history = await chat_history.get_recent_turns(limit)
+#     try:
+#         chat_history = await services.get_chat_history(session_id, customer_id)
+#         history = await chat_history.get_recent_turns(limit)
 
-        # First, serialize any ObjectId in the raw history data
-        serialized_history = [serialize_mongodb_doc(turn) for turn in history]
+#         # First, serialize any ObjectId in the raw history data
+#         serialized_history = [serialize_mongodb_doc(turn) for turn in history]
         
-        # Convert to API format
-        result = []
-        for turn in serialized_history:
-            chat_turn = ChatTurn(
-                role=turn.get("role", MessageRole.SYSTEM),
-                content=turn.get("content", ""),
-                timestamp=turn.get("timestamp", datetime.now()),
-                customer_id=customer_id,
-                session_id=session_id,
-                metadata=turn.get("metadata")
-            )
-            result.append(chat_turn)
+#         # Convert to API format
+#         result = []
+#         for turn in serialized_history:
+#             chat_turn = ChatTurn(
+#                 role=turn.get("role", MessageRole.SYSTEM),
+#                 content=turn.get("content", ""),
+#                 timestamp=turn.get("timestamp", datetime.now()),
+#                 customer_id=customer_id,
+#                 session_id=session_id,
+#                 metadata=turn.get("metadata")
+#             )
+#             result.append(chat_turn)
         
-        return result
+#         return result
         
-    except Exception as e:
-        logger.error(f"Error getting chat history for staff: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+#     except Exception as e:
+#         logger.error(f"Error getting chat history for staff: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))

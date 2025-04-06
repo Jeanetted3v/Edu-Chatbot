@@ -41,10 +41,29 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
   // Sets up the component and defines state variables that will hold all the data needed for the chat to work.
   // Load initial chat history
   useEffect(() => {
-    const loadChatHistory = async () => {
+    setMessages([]);
+    setLoading(true);
+
+    setMessages([{
+      id: Date.now().toString(),
+      content: 'Welcome to our support chat! How can we help you today?',
+      sender: 'bot',
+      timestamp: new Date()
+    }]);
+
+    // Create a timeout fallback in case WebSocket history is delayed or fails
+    const historyTimeout = setTimeout(() => {
+      // If we're still loading, fall back to HTTP
+      if (loading) {
+        console.log('WebSocket history not received, falling back to HTTP');
+        fetchHistoryViaHTTP();
+      }
+    }, 3000); // 3 second timeout
+
+    // Define the HTTP fallback function
+    const fetchHistoryViaHTTP = async () => {
       try {
-        setLoading(true);
-        // Try to get chat history
+        console.log('Fetching chat history via HTTP fallback');
         const history = await ApiService.getChatHistory(sessionId, customerId);
         
         // Map backend messages to UI format
@@ -55,52 +74,38 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
           timestamp: new Date(msg.timestamp)
         }));
         uiMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
-        setMessages(uiMessages);
         
-        // If no history, add a welcome message
-        if (uiMessages.length === 0) {
-          setMessages([{
-            id: Date.now().toString(),
-            content: 'Welcome to our support chat! How can we help you today?',
-            sender: 'bot',
-            timestamp: new Date()
-          }]);
+        if (uiMessages.length > 0) {
+          setMessages(uiMessages);
         }
+        // If no messages, keep the welcome message we set earlier
         
         setLoading(false);
       } catch (err) {
-        console.error('Error loading chat history:', err);
+        console.error('Error loading chat history via HTTP:', err);
         setError('Could not load chat history');
         setLoading(false);
-        
-        // Add fallback welcome message
-        setMessages([{
-          id: Date.now().toString(),
-          content: 'Welcome to our support chat! How can we help you today?',
-          sender: 'bot',
-          timestamp: new Date()
-        }]);
       }
     };
-    
-    loadChatHistory();
-  }, [customerId, sessionId]);
+    // Clean up the timeout on unmount
+    return () => clearTimeout(historyTimeout);
+  }, [customerId, sessionId, loading]);
+
 
   // Set up WebSocket connection
   useEffect(() => {
-    // Only set up WebSocket after loading initial messages
-    console.log('CustomerChat: WebSocket setup effect running, loading:', loading);
-    if (loading) return;
+    if (!sessionId) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // const wsUrl = `${protocol}//${window.location.host}/ws/chat/${sessionId}/customer`;
     const wsUrl = `${protocol}//localhost:8000/ws/chat/${sessionId}/customer`;
     const newSocket = new WebSocket(wsUrl);
-    
+    setLoading(true);
+
     newSocket.onopen = () => {
       console.log('WebSocket connected');
+      // Get history through the 'history' message type
     };
-    
+    // When we receive WebSocket messages
     newSocket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       console.log('WebSocket message received:', data);
@@ -148,17 +153,23 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
           return updatedMessages;
         });
       } else if (data.type === 'history') {
+        setLoading(false);
         // Handle full history update if needed
-        const historyMessages = data.messages.map((msg: ApiMessage) => ({
+        // Convert server messages to our UI format
+        const historyMessages = data.messages.map((msg) => ({
           id: `${msg.timestamp}-${Math.random()}`,
           content: msg.content,
           sender: mapRoleToSender(msg.role),
           timestamp: new Date(msg.timestamp)
         }));
-
-        historyMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
         
-        setMessages(historyMessages);
+        // Sort messages by time
+        historyMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        
+        // Update our messages state
+        if (historyMessages.length > 0) {
+          setMessages(historyMessages);
+        }
       }
     };
     
@@ -228,7 +239,8 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
       socket.send(JSON.stringify({
         type: "message",
         content: content,
-        customer_id: customerId
+        customer_id: customerId,
+        session_id: sessionId
       }));
       return; // Exit early - no need to call API
     } 
@@ -284,7 +296,11 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
           // Format date and time
           const messageDate = new Date(message.timestamp);
           const formattedDate = messageDate.toLocaleDateString();
-          const formattedTime = messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const formattedTime = messageDate.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false // This ensures 24-hour format
+          });
           
           return (
             <div 

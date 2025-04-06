@@ -66,7 +66,9 @@ class ServiceContainer:
         return self.chat_histories[session_id]
     
     async def get_or_create_session(
-        self, session_id: str, customer_id: str
+        self,
+        session_id: str,
+        customer_id: str
     ) -> ChatSession:
         """Get existing session or create a new one"""
         if session_id in self.active_sessions:

@@ -11,7 +11,7 @@ class ConnectionManager:
         self.active_connections: Dict[str, Dict[str, WebSocket]] = {}
 
     # Structure: {session_id: {client_id: websocket}}
-    async def connect(self, websocket, session_id, client_id):
+    async def connect(self, websocket, session_id, client_id):   # client_id is customer or staff
         if session_id not in self.active_connections:
             self.active_connections[session_id] = {}
         self.active_connections[session_id][client_id] = websocket
