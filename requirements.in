@@ -8,6 +8,7 @@ pyyaml
 python-json-logger
 hydra-core
 langchain
+langchain_experimental
 pymongo
 chromadb
 pydantic
@@ -26,4 +27,3 @@ nltk
 motor
 vaderSentiment
 ragas
-langchain_experimental
