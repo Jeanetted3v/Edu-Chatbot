@@ -12,6 +12,7 @@ pymongo
 chromadb
 pydantic
 pydantic-settings
+pydantic-ai==0.0.52
 pydantic-ai[logfire]
 google-auth
 google-auth-oauthlib 
