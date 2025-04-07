@@ -121,7 +121,7 @@ class QueryHandler:
 
     async def handle_query(
         self, query: str, session_id: str, customer_id: str
-    ) -> str:
+    ) -> tuple[str, dict, str]:
         """Main entry point for handling user queries."""
         try:
             session = await self.services.get_or_create_session(
@@ -146,7 +146,7 @@ class QueryHandler:
             analysis_result, agent_decision = await self.analyze_sentiment(   # need to handle is msg analyzer is None
                 session_id, customer_id, query, total_count)
             
-            # Add message to chat history with metadata from analysis, once and only once - with or without metadata
+            # Add message to chat history with metadata from analysis
             if analysis_result:
                 metadata = {
                     'sentiment_score': analysis_result.score,
@@ -183,8 +183,6 @@ class QueryHandler:
                     )
                     return transfer_failed_msg
 
-            # Step 2: Get or complete intent classification
-            # Prepare message history for the intent classifier
             msg_history = await chat_history.format_history_for_prompt()
             logger.info(f"Msg History b4 intent classification: {msg_history}")
 
@@ -194,10 +192,6 @@ class QueryHandler:
                     search_results
                 )
             )
-            logger.info(f"Search results: {top_result}")
-
-            
-            # Single llm call to get response
             result = await self.agent.run(
                 self.cfg.query_handler_prompts['user_prompt'].format(
                     query=query,
@@ -206,10 +200,18 @@ class QueryHandler:
                 )
             )
             response = result.data.response
-            logger.info(f"Agent output: {result.data}")
-            # response = agent_output.response
-            # await chat_history.add_turn(MessageRole.BOT, response)
-            return response
+            intent = result.data.intent
+            logger.info(f"Intent: {intent}, Top Search Result: {top_result}"
+                        f", Response: {response}")
+            await chat_history.add_turn(
+                MessageRole.BOT,
+                response,
+                metadata={
+                    'intent': intent,
+                    'top_search_result': top_result
+                }
+            )
+            return response, intent, top_result
                 
         except Exception as e:
             logger.error(f"Error handling query: {e}")
