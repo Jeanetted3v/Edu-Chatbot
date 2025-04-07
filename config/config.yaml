@@ -8,8 +8,6 @@ hybrid_retriever:
   collection: syn_data   # Collection name in chromadb, using syn_data for testing
 
 mongodb:
-  # host: localhost
-  # port: 27017
   db_name: syn_db  # Database name in MongoDB
   chat_history_collection: chat_history
   session_collection: sessions
