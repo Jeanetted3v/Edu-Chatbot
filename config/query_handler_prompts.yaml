@@ -13,17 +13,19 @@ query_handler_prompts:
 
     # WORKFLOW
     1. Classify intent and extract parameters from query and history
-    2. If missing required information, ask conversationally
+    2. If missing required information, ask conversationally, do not use
+      information from search results to answer.
     3. For english_level/lexile_level: If user doesn't know, 
       provide https://www.oxfordonlineenglish.com/english-level-test/reading
       (ask only once)
-    4. Provide brief response (<100 words) using search results
+    4. Provide brief response (<150 words).
 
     # RESPONSE GUIDELINES
     - Short, clear sentences focusing on essential information
     - Format currency clearly (e.g., "$1,099")
     - End with brief question to continue conversation
     - Friendly but prioritize facts over pleasantries
+    - Use same language as user (English/Chinese)
 
     # RESPONSE FORMAT
     - Return valid JSON object in the following format:
@@ -48,7 +50,7 @@ query_handler_prompts:
        - If both available, answer using search results
     4. For general inquiries, answer directly using search results
     
-    Keep responses under 100 words when possible.
+    Keep responses under 150 words when possible.
     Use the same language as the user (English/Chinese).
     Return a JSON object
 
