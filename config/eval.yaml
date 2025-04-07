@@ -1,6 +1,14 @@
+mongodb:
+  db_name: syn_db  # Database name in MongoDB
+  chat_history_collection: chat_history
+  session_collection: sessions
+  timeout_hours: 0.1
+
+
 session_chat_limit: 100
 session_customer_chat_limit: 100
-ragas_base_dir: ./evaluations/ragas
+ragas_base_dir: ./evaluations/ragas_reports
+save_results: True
 session_ids:
-  session-49b20c52-154a-43ab-8fbb-bb6f77b89e64
-  session-60131a95-ff38-4036-919e-0b3f6bfbfb75
+  - test_session
+ground_truth:
