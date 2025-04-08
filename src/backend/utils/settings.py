@@ -26,6 +26,6 @@ class Settings(BaseSettings):
     AZURE_API_KEY: str
     ANTHROPIC_API_KEY: str
     GEMINI_API_KEY: str
-    
+
 
 SETTINGS = Settings()

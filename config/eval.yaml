@@ -4,11 +4,55 @@ mongodb:
   session_collection: sessions
   timeout_hours: 0.1
 
-
 session_chat_limit: 100
 session_customer_chat_limit: 100
-ragas_base_dir: ./evaluations/ragas_reports
+ragas_base_dir: ./data/eval_reports/ragas
+deepeval_base_dir: ./data/eval_reports/deepeval
 save_results: True
 session_ids:
   - test_session
-ground_truth:
+
+chatbot_role: "You are an education consultant chatbot helping parents find courses and
+    answering education questions."
+# DeepEval metrics configuration
+metrics:
+  verbose_mode: True
+  log_reasons: True
+  model: "gpt-4o-mini"
+  role_adherence:
+    enabled: True
+    threshold: 0.5
+  knowledge_retention:
+    enabled: True
+    threshold: 0.5
+  conversational_completeness:
+    enabled: True
+    threshold: 0.5
+  conversational_relevancy:
+    enabled: True
+    threshold: 0.5
+  # Custom G-Eval for accuracy
+  convo_geval_accuracy:
+    enabled: True
+    threshold: 0.5
+    criteria: |
+      "Given the 'actual output' are generated responses from an LLM chatbot, 
+      'input' are user queries to the chatbot, 'expected output" is the ground
+      truth, determine whether the chatbot has answered the customer's inquiry
+      accurately throughout a conversation."
+    expected_output: |
+      "I recommend this 'English reading course for your child. It is suitable
+      for primary 3 and 4 students, teacher is John Smith, and the course
+      starts on June 2, 2025. The course is held every Thursday from 7-8pm 
+      until October, with a total of 20 lessons. The full price for half a year
+      is 1299, and the discounted price is 899. For a whole year, the full price
+      is 2598, and the discounted price is 1698. The maximum number of students
+      in the class is 15"
+    context: |
+      "course_id: 2025CR01 start_date: 2025-06-02 course_name: english reading 
+      course_level: primary3, primary 4 teacher: John Smith half_year_full_price: 
+      1299 half_year_discount_price: 899.0 whole_year_full_price: 2598.0 
+      whole_year_discount_price: 1698.0 max_student_count: 15 course_date_time:
+      Every Thursday 7-8pm, June to Oct, 20 lessons
+      min_age: 9 max_age: 10"
+  

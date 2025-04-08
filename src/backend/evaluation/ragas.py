@@ -179,7 +179,7 @@ class RagasEvaluator:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         results["evaluation_timestamp"] = timestamp
         if not base_dir:
-            base_dir = "./evaluations/ragas_reports"
+            base_dir = "./data/evaluations/ragas_reports"
             os.makedirs(base_dir, exist_ok=True)
         folder_name = f"session_{results['session_id']}_{timestamp}"
         eval_folder = os.path.join(base_dir, folder_name)

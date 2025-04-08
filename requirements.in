@@ -27,3 +27,5 @@ nltk
 motor
 vaderSentiment
 ragas
+deepeval==2.7.0
+pytest
