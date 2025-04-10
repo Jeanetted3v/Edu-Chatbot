@@ -1,7 +1,7 @@
 # Edu Chatbot
-  
+
 <div align="center">
-  <img src="./assets/discount.png" alt="RAG based chatbot, with human transfer mechanism">
+  <img src="./assets/architecture.png" alt="RAG based chatbot, with human transfer mechanism, Architecture Diagram">
 </div>
 
 Edu Chatbot is a customer service chatbot application, created for education enrichment businesses to auto-reply to customer inquiries. It manages customer inquiries across multiple channels including websites, WhatsApp, WeChat, Telegram, and more.
@@ -29,6 +29,9 @@ Ensures quality customer service through a sophisticated handoff system that act
 
 * **<span style="color:#4285F4">📱 Dual Interface</span>**: Features a comprehensive demonstration UI with customer-facing chat (left panel) and staff support dashboard (right panel) views.
 
+<div align="center">
+  <img src="./assets/discount.png" alt="RAG based chatbot, with human transfer mechanism">
+</div>
 
 ## Demo
 Check out Edu Chatbot in action: [YouTube](https://youtu.be/nDMpLLQesEk)
