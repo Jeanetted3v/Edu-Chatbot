@@ -8,7 +8,6 @@ import json
 import traceback
 import asyncio
 from omegaconf import DictConfig
-import asyncio
 
 from src.backend.utils.logging import setup_logging
 from src.backend.chat.service_container import ServiceContainer
