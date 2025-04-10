@@ -4,12 +4,22 @@ mongodb:
   session_collection: sessions
   timeout_hours: 0.1
 
+local_doc:
+  paths:
+    - path: ./data/data_to_ingest/syn_data.xlsx
+    - path: ./data/data_to_ingest/rag_qna.pdf
+  csv_dir: ./data/csv
+  rows_threshold: 2 
+
+
 session_chat_limit: 100
 session_customer_chat_limit: 100
 ragas_base_dir: ./data/eval_reports/ragas
 deepeval_base_dir: ./data/eval_reports/deepeval
 convo_csv_dir: ./data/convo/
 convo_csv_file_name: 2025-04-09_13-40-28.csv
+
+
 
 save_results: True
 session_ids:
@@ -35,12 +45,15 @@ metrics:
     enabled: True
     threshold: 0.5
   # Custom G-Eval for accuracy
-  # convo_geval_accuracy:
-  #   enabled: True
-  #   threshold: 0.5
-  #   criteria: |
-  #     "Given the 'actual output' are generated responses from an LLM chatbot, 
-  #     'input' are user queries to the chatbot, 'expected output" is the ground
-  #     truth, determine whether the chatbot has answered the customer's inquiry
-  #     accurately throughout a conversation."
+  convo_geval_accuracy:
+    enabled: True
+    threshold: 0.5
+    criteria: |
+      "Given the 'actual output' are generated responses from an LLM chatbot, 
+      'input' are user queries to the chatbot, 'expected output" is the ground
+      truth, determine whether the chatbot has answered the customer's inquiry
+      accurately throughout a conversation."
 
+defaults:
+  - _self_
+  - llm_gt_prompts

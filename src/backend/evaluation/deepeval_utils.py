@@ -2,16 +2,30 @@
 
 import os
 import json, csv
+import pandas as pd
 import logging
+from omegaconf import DictConfig
 from typing import Dict, List, Any, Tuple, Optional
 from datetime import datetime
+from pydantic import BaseModel
 from pydantic_ai import Agent
 
 from deepeval.dataset import EvaluationDataset
 from deepeval.test_case import ConversationalTestCase, LLMTestCase
-
+from src.backend.dataloaders.local_doc_loader import (
+    load_local_doc,
+    LoadedUnstructuredDocument,
+    LoadedStructuredDocument
+)
 
 logger = logging.getLogger(__name__)
+
+class LLMGroundTruth(BaseModel):
+    customer_inquiry: str
+    llm_gt: str
+
+class AllLLMGroundTruth(BaseModel):
+    all_llmgt: List[LLMGroundTruth]
 
 
 class EvalUtils:
@@ -60,7 +74,8 @@ class EvalUtils:
             with open(output_file, 'w', newline='', encoding='utf-8') as csvf:
                 fieldnames = [
                     'session_id', 'customer_inquiry',
-                    'bot_response', 'context', 'expected_output'
+                    'bot_response', 'retrieval_context', 'context',
+                    'expected_output'
                 ]
                 writer = csv.DictWriter(csvf, fieldnames=fieldnames)
                 writer.writeheader()
@@ -78,18 +93,19 @@ class EvalUtils:
                             next_msg = messages[i + 1]
                             if (current_msg['role'] == 'user' and
                                     next_msg['role'] == 'bot'):
-                                context = ""
+                                retrieval_context = ""
                                 if "metadata" in next_msg:
                                     metadata = next_msg["metadata"]
                                     logger.info(f"Metadata: {metadata}")
                                     if metadata:
-                                        context = metadata.get("top_search_result", "")
-                                        logger.info(f"Context: {context}")
+                                        retrieval_context = metadata.get("top_search_result", "")
+                                        logger.info(f"Retrieval Context: {retrieval_context}")
                                 row = {
                                     'session_id': session_id,
                                     'customer_inquiry': current_msg.get("content", ""),
                                     'bot_response': next_msg.get("content", ""),
-                                    'context': context,
+                                    'retrieval_context': retrieval_context,
+                                    'context': "",
                                     'expected_output': ""
                                 }
                                 writer.writerow(row)
@@ -105,6 +121,51 @@ class EvalUtils:
             logger.error(f"Error exporting conversations to CSV: {e}")
             raise
     
+    async def fill_gt_llm(
+        self,
+        cfg: DictConfig,
+        csv_path: str,
+        system_prompt: str,
+        user_prompt: str
+    ) -> None:
+        documents = load_local_doc(cfg)
+        rag_context = ""
+        for doc in documents:
+            if isinstance(doc, LoadedUnstructuredDocument):
+                rag_context += f"\n\n{doc.content}"
+            elif isinstance(doc, LoadedStructuredDocument):
+                df_str = doc.content.to_string(index=False)
+                rag_context += f"\n\n{df_str}"
+
+        df = pd.read_csv(csv_path)
+        if "customer_inquiry" not in df.columns:
+            raise ValueError("CSV does not contain 'customer_inquiry' column")
+        if "expected_output" not in df.columns:
+            df["expected_output"] = ""
+        inquiries = df["customer_inquiry"].tolist()
+
+        agent = Agent(
+            "openai:gpt-4o-mini",
+            result_type=AllLLMGroundTruth,
+            system_prompt=system_prompt
+        )
+        formatted_inquiries = "\n".join([f"Inquiry {i+1}: {inq}" 
+                                        for i, inq in enumerate(inquiries)])
+        result = await agent.run(user_prompt.format(
+            customer_inquiry=formatted_inquiries,
+            context=rag_context,
+            )
+        )
+        all_llmgt = result.data.all_llmgt
+        print(f"LLM Ground Truth: {all_llmgt}")
+        for i, item in enumerate(all_llmgt):
+            if i < len(df):
+                df.at[i, "expected_output"] = item.llm_gt
+
+        df.to_csv(csv_path, index=False)
+        logger.info(f"Updated CSV with LLM ground truth: {csv_path}")
+        return None
+    
     async def load_dataset_from_csv(
         self, csv_file_path: str, chatbot_role: str
     ) -> EvaluationDataset:
@@ -116,6 +177,7 @@ class EvalUtils:
             context_col_name="context",
             context_col_delimiter=";",
             expected_output_col_name="expected_output",
+            retrieval_context_col_name="retrieval_context",
             retrieval_context_col_delimiter=";"
         )
         print(f"Dataset: {dataset}")

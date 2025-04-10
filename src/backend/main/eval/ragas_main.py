@@ -1,5 +1,5 @@
 """To run:
-python -m src.backend.main.eval_ragas_main
+python -m src.backend.main.eval.ragas_main
 """
 import logging
 import hydra
@@ -46,7 +46,7 @@ async def run_single_session_eval(
 
 @hydra.main(
     version_base=None,
-    config_path="../../../config",
+    config_path="../../../../config",
     config_name="eval")
 def main(cfg: DictConfig) -> None:
     async def run_evaluation():

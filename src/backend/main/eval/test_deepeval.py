@@ -1,5 +1,5 @@
 """To run:
-deepeval test run src/backend/main/test_deepeval.py
+deepeval test run src/backend/main/eval/test_deepeval.py -v
 Parallelization (e.g. n=4): -n 4
 Use Cache with: -c
 Verbose mode: -v
@@ -11,6 +11,7 @@ from hydra import initialize, compose
 import asyncio
 import pytest
 
+from deepeval.test_case import LLMTestCaseParams
 # conversational metrics
 from deepeval.metrics import (
     ConversationalGEval,
@@ -28,16 +29,14 @@ from deepeval.metrics import (
 #     ContextualRecall
 # )
 
-from src.backend.utils.settings import SETTINGS
 from src.backend.utils.logging import setup_logging
-from src.backend.database.mongodb_client import MongoDBClient
 from src.backend.evaluation.deepeval_utils import EvalUtils
 
 
 logger = logging.getLogger(__name__)
 logger.info("Setting up logging configuration.")
 setup_logging()
-initialize(version_base=None, config_path="../../../config")
+initialize(version_base=None, config_path="../../../../config")
 cfg = compose(config_name="eval")
 
 
@@ -64,11 +63,18 @@ def init_metrics(cfg: DictConfig):
     metrics_config = cfg.metrics
     model = metrics_config.model
 
-    # if metrics_config.convo_geval_accuracy.enabled:
-    #     metrics_list.append(ConversationalGEval(
-    #         threshold=metrics_config.convo_geval_accuracy.threshold,
-    #         model=model,
-    #     ))
+    if metrics_config.convo_geval_accuracy.enabled:
+        metrics_list.append(ConversationalGEval(
+            name="accuracy",
+            criteria=metrics_config.convo_geval_accuracy.criteria,
+            evaluation_params=[
+                LLMTestCaseParams.INPUT,
+                LLMTestCaseParams.ACTUAL_OUTPUT,
+                LLMTestCaseParams.EXPECTED_OUTPUT
+            ],
+            threshold=metrics_config.convo_geval_accuracy.threshold,
+            model=model,
+        ))
     if metrics_config.role_adherence.enabled:
         metrics_list.append(RoleAdherenceMetric(
             threshold=metrics_config.role_adherence.threshold,
@@ -116,8 +122,7 @@ def test_deepeval(test_case):
             eval_utils.save_results_deepeval(
                 session_id,
                 metrics_results,
-                cfg.deepeval_base_dir,
-                test_case
+                cfg.deepeval_base_dir
             )
         )
         logger.info(f"Saved evaluation results to {json_filepath}")

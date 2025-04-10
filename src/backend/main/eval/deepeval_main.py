@@ -1,5 +1,5 @@
 """To run:
-python -m src.backend.main.eval_deepeval_main
+python -m src.backend.main.eval.deepeval_main
 """
 import logging
 import os
@@ -42,12 +42,18 @@ async def convert_msg_to_csv(cfg: DictConfig) -> None:
         output_file=convo_csv_file_path,
         session_chat_limit=cfg.session_chat_limit
     )
+    await utils.fill_gt_llm(
+        cfg=cfg,
+        csv_path=convo_csv_file_path,
+        system_prompt=cfg.llm_gt_prompts.system_prompt,
+        user_prompt=cfg.llm_gt_prompts.user_prompt
+    )
     return None
 
 
 @hydra.main(
     version_base=None,
-    config_path="../../../config",
+    config_path="../../../../config",
     config_name="eval")
 def main(cfg: DictConfig) -> None:
     asyncio.run(convert_msg_to_csv(cfg))
