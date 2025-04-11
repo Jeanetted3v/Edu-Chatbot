@@ -186,6 +186,8 @@ class QueryHandler:
             msg_history = await chat_history.format_history_for_prompt()
             logger.info(f"Msg History b4 intent classification: {msg_history}")
 
+            # add reasoning LLM 
+            # retrieve search results
             search_results = await self.services.hybrid_retriever.search(query)
             formatted_search_results, top_result = (
                 self.services.hybrid_retriever.format_search_results(
