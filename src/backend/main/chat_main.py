@@ -7,6 +7,7 @@ import hydra
 import json
 import traceback
 import asyncio
+import uuid
 from omegaconf import DictConfig
 
 from src.backend.utils.logging import setup_logging
@@ -22,8 +23,8 @@ class CLITester:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
         self.services = ServiceContainer(cfg)
-        self.session_id = "test_session"
-        self.customer_id = "test_customer"
+        self.session_id = f"session_{uuid.uuid4()}"
+        self.customer_id = f"customer_{uuid.uuid4()}"
         self.agent_mode = "bot"  # Track current mode
     
     async def initialize(self):
@@ -32,6 +33,8 @@ class CLITester:
         await self.services.get_or_create_session(
             self.session_id, self.customer_id
         )
+        logger.info(f"Session created with ID: {self.session_id}, "
+                    f"Customer ID: {self.customer_id}")
 
     def print_conversation(self, role: str, content: str) -> None:
         """Print conversation with appropriate role labels"""
