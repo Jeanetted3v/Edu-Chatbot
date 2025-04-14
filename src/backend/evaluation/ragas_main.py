@@ -1,5 +1,5 @@
 """To run:
-python -m src.backend.main.eval.ragas_main
+python -m src.backend.evaluation.ragas_main
 """
 import logging
 import hydra
