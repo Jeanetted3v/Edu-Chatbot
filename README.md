@@ -18,9 +18,7 @@ Edu Chatbot combines AI technologies with human oversight to ensure customer sat
 
 * **<span style="color:#4285F4">😊 Sentiment Analysis</span>**: Detects customer satisfaction levels and able to escalate to human staff when reaching a pre-configured threshold.
 
-* **<span style="color:#4285F4">👨‍💼 Human-in-the-Loop Design</span>**: 
-
-Ensures quality customer service through a sophisticated handoff system that activates when:
+* **<span style="color:#4285F4">👨‍💼 Human-in-the-Loop Design</span>**: Ensures quality customer service through a sophisticated handoff system that activates when:
     1. A customer explicitly requests to speak with a human representative
     2. The sentiment analysis module detects customer frustration or dissatisfaction
     3. Staff members proactively choose to intervene via the support dashboard
@@ -28,6 +26,8 @@ Ensures quality customer service through a sophisticated handoff system that act
 * **<span style="color:#4285F4">🔄 Seamless Handoff</span>**: Enables staff to take over conversations when needed and return control to the chatbot once complex issues are resolved.
 
 * **<span style="color:#4285F4">📱 Dual Interface</span>**: Features a comprehensive demonstration UI with customer-facing chat (left panel) and staff support dashboard (right panel) views.
+
+* **<span style="color:#4285F4">>📊 Comprehensive Evaluation</span>**: A spectrum of evaluation metrics for single-turn and multi-turn conversations. A stimulator to generate datasets for pre-deployment evaluation.
 
 <div align="center">
   <img src="./assets/discount.png" alt="RAG based chatbot, with human transfer mechanism">
@@ -165,7 +165,8 @@ gdrive_doc:
 - All chat histories are saved in MongoDB, which allows for tracing, further analysis and prompt enhancements.
 
 <span style="color:#E91E63">📊 Evaluation</span>
-- Metrics include answer relevancy, faithfulness, context precision and answer correctness.
+- Metrics include answer relevancy, faithfulness, context precision, answer correctness.
+- Conversational metrics are also used here since it involves multi-turn conversations.
 - Evaluation results are logged for continuous improvement of the system.
 
 
@@ -178,8 +179,8 @@ gdrive_doc:
 **Vector Database**
 - To support more types of vector database
 
-**LLM Models**
-- To support more LLM models
+**Enhanced Evaluation**
+- To add customized evaluation metrics
 
 ## Project Structure
 ### ASCII Directory Tree (Complete Structure)
@@ -345,7 +346,8 @@ graph TD
 **<span style="color:#00BCD4">⚡ FastAPI</span>**: Backend API framework  
 **<span style="color:#795548">⚛️ NodeJS/React</span>**: Frontend interface  
 **<span style="color:#607D8B">🐳 Docker</span>**: Containerization and deployment  
-**<span style="color:#E91E63">📊 RAGAS</span>**: RAG evaluation framework for measuring relevancy, faithfulness and correctness
+**<span style="color:#E91E63">📊 RAGAS</span>**: RAG evaluation framework for measuring relevancy, faithfulness, correctness
+**<span style="color:#E91E63">📊 DeepEval</span>**: DeepEval evaluation framework for measuring conversational metrics, such as role adherence, knowledge retention, conversation completeness, conversation relevancy
 
 
 ## Contributing
