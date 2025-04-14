@@ -1,5 +1,5 @@
-"""To interact with this chatbot via terminal,
-run: python -m src.backend.main.chat_main
+"""To interact with this chatbot via terminal, run:
+python -m src.backend.main.chat_main
 """
 import logging
 import logfire

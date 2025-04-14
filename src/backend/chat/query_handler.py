@@ -31,10 +31,16 @@ class QueryHandler:
         model_config = dict(self.cfg.query_handler.llm)
         model = LLMModelFactory.create_model(model_config)
         logger.info(f"LLM model instance created: {model}")
-        self.agent = Agent(
+        self.reasoning_agent = Agent(
+            model=model,
+            result_type=str,
+            system_prompt=self.cfg.query_handler_prompts.reasoning_agent['sys_prompt']
+        )
+        self.response_agent = Agent(
             model=model,
             result_type=QueryHandlerResponse,
-            system_prompt=self.cfg.query_handler_prompts['sys_prompt'],
+            system_prompt=self.cfg.query_handler_prompts.response_agent['sys_prompt']
+
         )
     
     async def analyze_sentiment(
@@ -184,16 +190,26 @@ class QueryHandler:
 
             msg_history = await chat_history.format_history_for_prompt()
 
-            # add reasoning LLM 
+            # Reasoning agent
+            # reasoning_result = await self.reasoning_agent.run(
+            #     self.cfg.query_handler_prompts.reasoning_agent['user_prompt'].format(
+            #         query=query,
+            #         message_history=msg_history
+            #     ),
+            # )
+            # logger.info(f"Reasoning result: {reasoning_result.data}")
             # retrieve search results
-            search_results = await self.services.hybrid_retriever.search(query)
+            search_results = await self.services.hybrid_retriever.search(
+                query
+            )
             formatted_search_results, top_result = (
                 self.services.hybrid_retriever.format_search_results(
                     search_results
                 )
             )
-            result = await self.agent.run(
-                self.cfg.query_handler_prompts['user_prompt'].format(
+            # Response agent
+            result = await self.response_agent.run(
+                self.cfg.query_handler_prompts.response_agent['user_prompt'].format(
                     query=query,
                     message_history=msg_history,
                     search_results=top_result
