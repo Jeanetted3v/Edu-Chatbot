@@ -26,6 +26,7 @@ query_handler_prompts:
     - End with brief question to continue conversation
     - Friendly but prioritize facts over pleasantries
     - Use same language as user (English/Chinese)
+    - If the information is not available, say "I don't know" or "I can't help with that"
 
     # RESPONSE FORMAT
     - Return valid JSON object in the following format:
