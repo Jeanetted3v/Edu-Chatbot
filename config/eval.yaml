@@ -14,16 +14,15 @@ local_doc:
 
 session_chat_limit: 100
 session_customer_chat_limit: 100
-ragas_base_dir: ./data/eval_reports/ragas
-deepeval_base_dir: ./data/eval_reports/deepeval
+ragas_base_dir: ./data/eval/ragas
+deepeval_base_dir: ./data/eval/deepeval
 convo_csv_dir: ./data/convo/
-convo_csv_file_name: 2025-04-09_13-40-28.csv
-
 
 
 save_results: True
 session_ids:
-  - test_session
+  - session_1b424648-67c3-4e51-8d8b-84843ce797fb
+  - session_1010b69d-fca8-49b7-8615-acc33e22a8fa
 
 chatbot_role: "You are an education consultant chatbot helping parents find courses and
     answering education questions."

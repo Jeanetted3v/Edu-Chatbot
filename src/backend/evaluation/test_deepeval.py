@@ -102,7 +102,7 @@ class DeepEval:
         self,
         session_ids: List[str],
         session_chat_limit: int = 100
-    ) -> List[str]:
+    ) -> pd.DataFrame:
         all_rows = []
         for session_id in session_ids:
             try:
@@ -136,7 +136,8 @@ class DeepEval:
             except Exception as e:
                 logger.error(f"Error exporting conversations to CSV: {e}")
                 raise
-        return pd.DataFrame(all_rows)
+        df = pd.DataFrame(all_rows)
+        return df
     
     async def fill_gt_llm(
         self,
@@ -155,6 +156,7 @@ class DeepEval:
                 rag_context += f"\n\n{df_str}"
 
         inquiries = df["customer_inquiry"].tolist()
+        logger.info(f"Filling LLM ground truth for {len(inquiries)} inquiries.")
 
         agent = Agent(
             "openai:gpt-4o-mini",
@@ -175,7 +177,7 @@ class DeepEval:
         csv_file_path = os.path.join(csv_dir, 'conversations.csv')
         df.to_csv(csv_file_path, index=False)
         logger.info(f"CSV file saved at: {csv_file_path}")
-        return csv_file_path, df
+        return df
     
     async def load_datasets_from_df(
         self, df: pd.DataFrame, chatbot_role: str
@@ -186,25 +188,23 @@ class DeepEval:
         """
         datasets = []
         for session_id, session_df in df.groupby('session_id'):
-            llm_test_cases = [
+            test_cases = [
                 LLMTestCase(
-                    input=row['customer_inquiry'], 
+                    input=row['customer_inquiry'],
                     actual_output=row['bot_response'],
-                    retrieval_context=row['retrieval_context'],
+                    retrieval_context=[str(row['retrieval_context'])],
                     expected_output=row['expected_output']
                 ) for _, row in session_df.iterrows()
             ]
-            print(f"Session ID: {session_id}")
-            print(f"Test Cases: {llm_test_cases}")
             
             # Create ConversationalTestCase for each session_id
             conv_test_case = ConversationalTestCase(
                 chatbot_role=chatbot_role,
-                turns=llm_test_cases
+                turns=test_cases
             )
             conv_test_case.session_id = session_id
-            datasets.append(EvaluationDataset(test_cases=[conv_test_case]))
-        return EvaluationDataset()
+            datasets.append(conv_test_case)
+        return datasets
 
     async def save_results_deepeval(
         self,
@@ -279,15 +279,17 @@ async def load_all_datasets():
     df = await deepeval.extract_convo_to_df(
         cfg.session_ids, cfg.session_chat_limit
     )
+    logger.info(f"Extracted {len(df)} conversations from MongoDB.")
     df = await deepeval.fill_gt_llm(
-        df,
         cfg.convo_csv_dir,
+        df,
         cfg.llm_gt_prompts.system_prompt,
         cfg.llm_gt_prompts.user_prompt
     )
-    datasets = await deepeval.load_dataset_from_df(
+    datasets = await deepeval.load_datasets_from_df(
         df, chatbot_role=cfg.chatbot_role
     )
+    print(f"Datasets: {datasets}")
     return datasets, deepeval
 
 
