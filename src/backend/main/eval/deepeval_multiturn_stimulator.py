@@ -1,7 +1,6 @@
 """To run:
 python -m src.backend.main.eval.deepeval_multiturn_stimulator
 """
-
 import logging
 import asyncio
 from hydra import initialize, compose
@@ -11,10 +10,10 @@ from src.backend.utils.logging import setup_logging
 
 user_profile_items = ["parent", "age of kid", "course interested in"]
 user_intentions = [
-    "check relevant course",
-    "check course details",
-    "check which teacher is teaching my kid",
-    "check course price",
+    "find out about relevant course",
+    "find out about course details",
+    "find out which teacher is teaching my kid",
+    "find out the price of course interested in",
     "check course format",
     "check course schedule"
 ]
@@ -31,41 +30,48 @@ setup_logging()
 initialize(version_base=None, config_path="../../../../config")
 cfg = compose(config_name="config")
 
-
-async def process_with_tester(input_text):
-    tester = CLITester(cfg)
-    await tester.initialize()
-    await tester.process_query(input_text)
-    chat_history = await tester.services.get_chat_history(
-        tester.session_id,
-        tester.customer_id
-    )
-    # Get the last assistant message from chat history
-    last_turn = chat_history.get_last_turn()
-    await tester.services.cleanup()
-    return last_turn[1] if last_turn else "No response generated"
-
-tester = None
+print("Initializing tester...")
+tester = CLITester(cfg)
+loop = asyncio.new_event_loop()
+loop.run_until_complete(tester.initialize())
 
 
-def model_callback(input_text: str) -> str:
-    # Run the async function in a new event loop
-    response = asyncio.run(process_with_tester(input_text))
-    return response
+async def model_callback(input_text: str) -> str:
+    try:
+        tester = CLITester(cfg)
+        await tester.services.initialize()
+        query = input_text
+        await tester.process_query(query)
+    except Exception as e:
+        logger.error(f"Error in model callback: {e}")
+        return "An error occurred while processing your request."
+    finally:
+        await tester.services.cleanup()
+
+
+async def main():
+    try:
+        logger.info("Running the conversation simulator.")
+        await convo_simulator.simulate(
+            model_callback=model_callback,
+            min_turns=2,
+            max_turns=5,
+            num_conversations=1
+        )
+        
+        # Optional: Print or save simulated conversations
+        for i, convo in enumerate(convo_simulator.simulated_conversations):
+            print(f"\n--- Conversation {i+1} ---")
+            for turn in convo.turns:
+                print(f"User: {turn.input}")
+                print(f"Assistant: {turn.output}\n")
+    except Exception as e:
+        logger.error(f"Error during conversation simulation: {e}")
+        await tester.services.cleanup()
+    finally:
+        await tester.services.cleanup()
+        loop.close()
 
 
 if __name__ == "__main__":
-    logger.info("Running the conversation simulator.")
-    convo_simulator.simulate(
-        model_callback=model_callback,
-        min_turns=2,
-        max_turns=5,
-        num_conversations=2 
-    )
-    
-    # Optional: Print or save simulated conversations
-    for i, convo in enumerate(convo_simulator.simulated_conversations):
-        print(f"\n--- Conversation {i+1} ---")
-        for turn in convo.turns:
-            print(f"User: {turn.input}")
-            print(f"Assistant: {turn.output}\n")
+    asyncio.run(main())
