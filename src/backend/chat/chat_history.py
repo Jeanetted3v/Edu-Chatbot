@@ -100,7 +100,6 @@ class ChatHistory:
                 for turn in turns
             )
             logger.info(f"Successfully retrieved {len(turns)} messages")
-            logger.info(f"Formatted history: {formatted_history}")
             return formatted_history
         except Exception as e:
             error_msg = f"Error retrieving conversation history: {str(e)}"

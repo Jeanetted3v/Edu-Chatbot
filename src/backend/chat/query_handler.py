@@ -129,7 +129,6 @@ class QueryHandler:
             )
             chat_history = await self.services.get_chat_history(
                 session_id, customer_id)
-            logger.info(f"Start handling query: {query}")
 
             if session.current_agent == AgentType.HUMAN:
                 # Add message to chat history without any sentiment analysis
@@ -184,7 +183,6 @@ class QueryHandler:
                     return transfer_failed_msg
 
             msg_history = await chat_history.format_history_for_prompt()
-            logger.info(f"Msg History b4 intent classification: {msg_history}")
 
             # add reasoning LLM 
             # retrieve search results
