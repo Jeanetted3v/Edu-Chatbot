@@ -1,7 +1,7 @@
 # Edu Chatbot
 
 <div align="center">
-  <img src="./assets/architecture.png" alt="RAG based chatbot, with human transfer mechanism, Architecture Diagram">
+  <img src="./assets/architecture.png" alt="RAG based chatbot, with human transfer mechanism, Architecture Diagram" width="800">
 </div>
 
 Edu Chatbot is a customer service chatbot application, created for education enrichment businesses to auto-reply to customer inquiries. It manages customer inquiries across multiple channels including websites, WhatsApp, WeChat, Telegram, and more.
@@ -18,6 +18,10 @@ Edu Chatbot combines AI technologies with human oversight to ensure customer sat
 
 * **<span style="color:#4285F4">😊 Sentiment Analysis</span>**: Detects customer satisfaction levels and able to escalate to human staff when reaching a pre-configured threshold.
 
+* **<span style="color:#4285F4">🧩 Custom Conversation Simulator</span>**: Takes on parent role, generating realistic queries and follow-up questions. Creates customizable datasets with varying personas and complexity for pre-deployment testing.
+
+* **<span style="color:#4285F4">📊 Comprehensive Evaluation</span>**: A spectrum of evaluation metrics for single-turn and multi-turn conversations.
+
 * **<span style="color:#4285F4">👨‍💼 Human-in-the-Loop Design</span>**: Ensures quality customer service through a sophisticated handoff system that activates when:
     1. A customer explicitly requests to speak with a human representative
     2. The sentiment analysis module detects customer frustration or dissatisfaction
@@ -27,10 +31,8 @@ Edu Chatbot combines AI technologies with human oversight to ensure customer sat
 
 * **<span style="color:#4285F4">📱 Dual Interface</span>**: Features a comprehensive demonstration UI with customer-facing chat (left panel) and staff support dashboard (right panel) views.
 
-* **<span style="color:#4285F4">>📊 Comprehensive Evaluation</span>**: A spectrum of evaluation metrics for single-turn and multi-turn conversations. A stimulator to generate datasets for pre-deployment evaluation.
-
 <div align="center">
-  <img src="./assets/discount.png" alt="RAG based chatbot, with human transfer mechanism">
+  <img src="./assets/discount.png" alt="RAG based chatbot, with human transfer mechanism" width="1000">
 </div>
 
 ## Demo
