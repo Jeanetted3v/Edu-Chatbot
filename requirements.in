@@ -29,3 +29,4 @@ vaderSentiment
 ragas
 deepeval==2.7.0
 pytest
+langchain-groq

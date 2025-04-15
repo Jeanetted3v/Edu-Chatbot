@@ -22,6 +22,8 @@ from src.backend.utils.settings import SETTINGS
 from src.backend.database.mongodb_client import MongoDBClient
 from deepeval.dataset import EvaluationDataset
 from deepeval.test_case import ConversationalTestCase, LLMTestCase
+from src.backend.evaluation.deepeval_llm_factory import DeepEvalLLMFactory
+
 from src.backend.dataloaders.local_doc_loader import (
     load_local_doc,
     LoadedUnstructuredDocument,
@@ -174,9 +176,12 @@ class DeepEval:
         for i, item in enumerate(all_llmgt):
             if i < len(df):
                 df.at[i, "expected_output"] = item.llm_gt
-        csv_file_path = os.path.join(csv_dir, 'conversations.csv')
+        csv_file_path = os.path.join(csv_dir, 'convos.csv')
+        json_file_path = os.path.join(csv_dir, 'convos.json')
+        df.to_json(json_file_path, orient='records', indent=2)
         df.to_csv(csv_file_path, index=False)
         logger.info(f"CSV file saved at: {csv_file_path}")
+        logger.info(f"JSON file saved at {json_file_path}")
         return df
     
     async def load_datasets_from_df(
@@ -293,11 +298,34 @@ async def load_all_datasets():
     return datasets, deepeval
 
 
-def init_metrics(cfg: DictConfig):
+def init_llm(cfg: DictConfig):
+    """Initialize the LLM model based on configuration."""
+    provider = cfg.llm.provider
+    
+    if provider == "groq":
+        return DeepEvalLLMFactory.create_llm(
+            provider=provider,
+            model_name=cfg.llm.params.groq.model_name,
+            api_key=SETTINGS.GROQ_API_KEY
+        )
+    elif provider == "azure":
+        return DeepEvalLLMFactory.create_llm(
+            provider=provider,
+            azure_deployment=cfg.llm.params.azure.azure_deployment,
+            azure_endpoint=SETTINGS.AZURE_ENDPOINT,
+            api_version=cfg.llm.params.azure.api_version,
+            api_key=SETTINGS.AZURE_API_KEY
+        )
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
+
+
+def init_metrics(cfg: DictConfig, model=None):
     """Get metrics that are enabled in the config."""
     metrics_list = []
     metrics_config = cfg.metrics
-    model = metrics_config.model
+    if model is None:
+        model = init_llm(cfg)
 
     if metrics_config.convo_geval_accuracy.enabled:
         metrics_list.append(ConversationalGEval(

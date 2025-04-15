@@ -1,7 +1,4 @@
-# from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
-import time
-from pymongo.errors import ConfigurationError
 from pydantic_settings import BaseSettings
 
 load_dotenv(find_dotenv(), override=True)
@@ -24,6 +21,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     AZURE_ENDPOINT: str
     AZURE_API_KEY: str
+    AZURE_API_VERSION: str
     ANTHROPIC_API_KEY: str
     GEMINI_API_KEY: str
     GROQ_API_KEY: str

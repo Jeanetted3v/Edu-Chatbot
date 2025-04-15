@@ -18,6 +18,7 @@ user_intentions = [
     "check course schedule"
 ]
 
+
 convo_simulator = ConversationSimulator(
     user_profile_items=user_profile_items,
     user_intentions=user_intentions,
@@ -25,32 +26,26 @@ convo_simulator = ConversationSimulator(
 )
 
 logger = logging.getLogger(__name__)
-logger.info("Setting up logging configuration.")
-setup_logging()
-initialize(version_base=None, config_path="../../../config")
-cfg = compose(config_name="config")
-
-print("Initializing tester...")
-tester = CLITester(cfg)
-loop = asyncio.new_event_loop()
-loop.run_until_complete(tester.initialize())
-
-
-async def model_callback(input_text: str) -> str:
-    try:
-        tester = CLITester(cfg)
-        await tester.services.initialize()
-        query = input_text
-        response = await tester.process_query(query)
-        return response
-    except Exception as e:
-        logger.error(f"Error in model callback: {e}")
-        return "An error occurred while processing your request."
-    finally:
-        await tester.services.cleanup()
 
 
 async def main():
+    logger.info("Setting up logging configuration.")
+    setup_logging()
+    initialize(version_base=None, config_path="../../../config")
+    cfg = compose(config_name="config")
+
+    print("Initializing tester...")
+    tester = CLITester(cfg)
+    await tester.initialize()
+
+    async def model_callback(input_text: str) -> str:
+        try:
+            response = await tester.process_query(input_text)
+            return response
+        except Exception as e:
+            logger.error(f"Error in model callback: {e}")
+            return "An error occurred while processing your request."
+
     try:
         logger.info("Running the conversation simulator.")
         await convo_simulator.simulate(
@@ -71,7 +66,6 @@ async def main():
         await tester.services.cleanup()
     finally:
         await tester.services.cleanup()
-        loop.close()
 
 
 if __name__ == "__main__":
