@@ -13,7 +13,7 @@ mongodb:
   session_collection: sessions
   timeout_hours: 0.1
 
-# for general usage (sentiment analysis, etc.)
+# for general usage (sentiment analysis, etc.) in llm_instance
 llm:
   provider: OpenAI
   model: gpt-4.1-mini
@@ -50,7 +50,10 @@ sentiment_analyzer:
 
 simulator:
   enabled: True
-  llm_model: "openai:gpt-4.1-mini"
+  simulator_llm: "openai:gpt-4.1-mini"   # either include the provide:model_name format or use the format llm below
+  llm:
+    provider: openai_async  # openai, openai_async, azure, azure_async, google-gla, anthropic
+    model_name: gpt-4.1-mini # gpt-4o, claude-3-5-sonnet-latest, gemini-2.0-flash, etc
   num_exchanges: 5
 
 api:

@@ -28,7 +28,7 @@ session_ids:
 chatbot_role: "You are an education consultant chatbot helping parents find courses and
     answering education questions."
 llm:
-  provider: azure  # Options: azure, groq
+  provider: azure  # Options: currently only supports azure, groq
   params:
     groq:
       model_name: llama3-70b-8192

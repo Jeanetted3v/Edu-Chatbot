@@ -12,6 +12,7 @@ from omegaconf import DictConfig
 from pydantic_ai import Agent
 from src.backend.utils.logging import setup_logging
 from src.backend.chat.service_container import ServiceContainer
+from src.backend.utils.llm_model_factory import LLMModelFactory
 
 
 logger = logging.getLogger(__name__)
@@ -27,9 +28,12 @@ class Simulator:
         self.session_id = f"session_{uuid.uuid4()}"
         self.customer_id = f"customer_{uuid.uuid4()}"
         self.agent_mode = "bot"
+        model_config = dict(self.cfg.simulator.llm)
+        model = LLMModelFactory.create_model(model_config)
+        logger.info(f"LLM model instance created: {model}")
         self.prompts = cfg.simulator_prompts
         self.simulator_agent = Agent(
-            "openai:gpt-4.1-mini",
+            model=model,
             result_type=str,
             system_prompt=self.prompts['sys_prompt'],
         )
@@ -187,8 +191,8 @@ class Simulator:
 def main(cfg) -> None:
     
     async def async_main():
-        tester = Simulator(cfg)
-        await tester.run()
+        simulator = Simulator(cfg)
+        await simulator.run()
     
     asyncio.run(async_main())
 
