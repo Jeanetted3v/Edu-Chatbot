@@ -23,7 +23,7 @@ save_results: True
 session_ids:
   # - session_1b424648-67c3-4e51-8d8b-84843ce797fb  # human tester
   # - session_1010b69d-fca8-49b7-8615-acc33e22a8fa  # human tester
-  - session_cb44a498-def9-4360-9d2c-a53d0b940e53  # stimulator
+  - session_5e309cf8-0c14-448d-be09-9ce4fec2fa3c  # stimulator
 
 chatbot_role: "You are an education consultant chatbot helping parents find courses and
     answering education questions."

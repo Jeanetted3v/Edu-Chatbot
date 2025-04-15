@@ -48,6 +48,11 @@ sentiment_analyzer:
   use_llm_validation: false
   default_score: 0.7
 
+simulator:
+  enabled: True
+  llm_model: "openai:gpt-4.1-mini"
+  num_exchanges: 5
+
 api:
   reload: False
 
@@ -56,4 +61,5 @@ defaults:
   - sentiment_analyzer_prompts
   - human_agent_prompts
   - query_handler_prompts
+  - simulator_prompts
 
