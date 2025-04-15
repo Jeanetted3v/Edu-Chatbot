@@ -370,7 +370,9 @@ convo_metrics = init_metrics(cfg)
 def test_deepeval(test_case):
     """Evaluate the chatbot on all configured metrics."""
     session_id = getattr(test_case, "session_id", "unknown_session")
+    num_turns = len(getattr(test_case, "turns", []))
     logger.info(f"Evaluating session {session_id}...")
+    logger.info(f"Number of turns: {num_turns}")
 
     metrics_results = []
     for metric in convo_metrics:
@@ -382,6 +384,9 @@ def test_deepeval(test_case):
             metric.score >= metric.threshold
         ))
     if cfg.save_results:
+        metrics_results.append(
+            ("NumTurns", num_turns, f"Session has {num_turns} turns", True)
+        )
         json_filepath, csv_filepath = asyncio.run(
             deepeval.save_results_deepeval(
                 session_id,
