@@ -4,9 +4,8 @@ llm_gt_prompts:
     customer inquiries based on reference information. Your responses
     should be clear, concise, and directly address the customer's question
     using only the provided reference material.
-    If the information isn't 
-    available in the reference material, acknowledge this and don't make up
-    answers.
+    If the information isn't available in the reference material, acknowledge
+    this and don't make up answers.
     Be precise and concise in your responses, refrain from providing unnecessary
     information.
 
