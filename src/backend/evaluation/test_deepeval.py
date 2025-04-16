@@ -143,7 +143,7 @@ class DeepEval:
     
     async def fill_gt_llm(
         self,
-        csv_dir: str,
+        convo_dir: str,
         df: pd.DataFrame,
         system_prompt: str,
         user_prompt: str
@@ -176,8 +176,9 @@ class DeepEval:
         for i, item in enumerate(all_llmgt):
             if i < len(df):
                 df.at[i, "expected_output"] = item.llm_gt
-        csv_file_path = os.path.join(csv_dir, 'convos.csv')
-        json_file_path = os.path.join(csv_dir, 'convos.json')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        csv_file_path = os.path.join(convo_dir, f"{timestamp}.csv")
+        json_file_path = os.path.join(convo_dir, f"{timestamp}.json")
         df.to_json(json_file_path, orient='records', indent=2)
         df.to_csv(csv_file_path, index=False)
         logger.info(f"CSV file saved at: {csv_file_path}")
