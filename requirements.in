@@ -30,3 +30,5 @@ ragas
 deepeval==2.7.0
 pytest
 langchain-groq
+nemoguardrails
+langchain-nvidia-ai-endpoints
