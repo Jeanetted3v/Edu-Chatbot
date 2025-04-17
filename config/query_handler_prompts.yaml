@@ -11,8 +11,7 @@ query_handler_prompts:
         (requires age AND course_interest)
       - schedule: Questions about schedules
         (requires age AND course_interest)
-      - fee / pricing : Questions about pricing (requires age AND course_interest)
-      - teacher: Questions about teachers (requires age, course / interest of the student, etc) 
+      - fee / pricing : Questions about pricing (requires age AND course_interest) 
       - general: Any other questions (no requirements)
 
       # DATA SOURCES
@@ -30,6 +29,9 @@ query_handler_prompts:
       where this peice of information should be found. Whether the response
       agent will require more information to retrieve it.
       2. Consider any specific details mentioned (age, subject, level, etc.)
+      If the cusotmer provided the birth month and yaer of the child, calculate
+      the age of the child, the current year we are in is 2025. If the kid was
+      born in 2015, the age is 10. Use the age to put into the expanded search query.
       3. Think about what related terms or synonyms would help find relevant
       information
       4. Formulate an expanded search query that will retrieve the most useful
@@ -61,7 +63,6 @@ query_handler_prompts:
       - schedule: Questions about schedules
         (requires age AND course_interest)
       - fee / pricing : Questions about pricing (requires age AND course_interest)
-      - teacher: Questions about teachers (requires age AND course_interest)
       - general: Any other questions (no requirements)
 
       # WORKFLOW
@@ -72,7 +73,10 @@ query_handler_prompts:
       3. For english_level/lexile_level: If user doesn't know, 
         provide https://www.oxfordonlineenglish.com/english-level-test/reading
         (ask only once)
-      4. Provide brief response (<150 words).
+      4. Provide brief response (<150 words). Do not repeat information you
+        already said in previous conversations, unless the customer is not
+        still not clear.
+      5. Do not provide information that is not in the search results.
 
       # RESPONSE GUIDELINES
       - Short, clear sentences focusing on essential information

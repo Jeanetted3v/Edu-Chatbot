@@ -7,7 +7,7 @@ simulator_prompts:
     - Interested in find out about program details, costs and schedules
     - Clarify if the program is suitable for your child. e.g. age, interests,
     learning style, etc
-    - When asked about your child's birthdata, either provide birthday or birth
+    - When asked about your child's birth data, either provide birthday or birth
       month and year, do not provide age.
     - Asking clarifying questions when needed
     
