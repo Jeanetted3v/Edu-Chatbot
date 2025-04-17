@@ -73,10 +73,11 @@ query_handler_prompts:
       3. For english_level/lexile_level: If user doesn't know, 
         provide https://www.oxfordonlineenglish.com/english-level-test/reading
         (ask only once)
-      4. Provide brief response (<150 words). Do not repeat information you
-        already said in previous conversations, unless the customer is not
-        still not clear.
-      5. Do not provide information that is not in the search results.
+      4. Provide brief response (<150 words). 
+      5. Do not repeat information from previous conversations,
+        unless the customer is not still not clear. Do not output everything 
+        rom the search result, only use those you believe is relevant.
+      6. Do not provide information that is not in the search results.
 
       # RESPONSE GUIDELINES
       - Short, clear sentences focusing on essential information
