@@ -191,13 +191,13 @@ class QueryHandler:
             msg_history = await chat_history.format_history_for_prompt()
 
             # Reasoning agent
-            # reasoning_result = await self.reasoning_agent.run(
-            #     self.cfg.query_handler_prompts.reasoning_agent['user_prompt'].format(
-            #         query=query,
-            #         message_history=msg_history
-            #     ),
-            # )
-            # logger.info(f"Reasoning result: {reasoning_result.data}")
+            reasoning_result = await self.reasoning_agent.run(
+                self.cfg.query_handler_prompts.reasoning_agent['user_prompt'].format(
+                    query=query,
+                    message_history=msg_history
+                ),
+            )
+            logger.info(f"Reasoning result: {reasoning_result.data}")
             # retrieve search results
             search_results = await self.services.hybrid_retriever.search(
                 query
@@ -212,12 +212,13 @@ class QueryHandler:
                 self.cfg.query_handler_prompts.response_agent['user_prompt'].format(
                     query=query,
                     message_history=msg_history,
-                    search_results=top_result
+                    search_results=formatted_search_results
                 )
             )
             response = result.data.response
             intent = result.data.intent
-            logger.info(f"Intent: {intent}, Top Search Result: {top_result}"
+            logger.info(f"Intent: {intent}, "
+                        f"Formatted Result: {formatted_search_results}"
                         f", Response: {response}")
             await chat_history.add_turn(
                 MessageRole.BOT,
