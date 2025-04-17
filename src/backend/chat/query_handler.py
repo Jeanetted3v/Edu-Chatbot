@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from src.backend.models.human_agent import (
@@ -12,6 +12,11 @@ from src.backend.utils.llm_model_factory import LLMModelFactory
 
 logger = logging.getLogger(__name__)
 
+
+class ReasongingResult(BaseModel):
+    """Result model for reasoning agent"""
+    expanded_query: List[str]
+    need_search: bool
 
 class QueryHandlerResponse(BaseModel):
     """Response model for query handler"""
@@ -33,7 +38,7 @@ class QueryHandler:
         logger.info(f"LLM model instance created: {model}")
         self.reasoning_agent = Agent(
             model=model,
-            result_type=str,
+            result_type=ReasongingResult,
             system_prompt=self.cfg.query_handler_prompts.reasoning_agent['sys_prompt']
         )
         self.response_agent = Agent(
@@ -190,7 +195,6 @@ class QueryHandler:
 
             msg_history = await chat_history.format_history_for_prompt()
 
-            # Reasoning agent
             reasoning_result = await self.reasoning_agent.run(
                 self.cfg.query_handler_prompts.reasoning_agent['user_prompt'].format(
                     query=query,
@@ -198,37 +202,38 @@ class QueryHandler:
                 ),
             )
             logger.info(f"Reasoning result: {reasoning_result.data}")
-            # retrieve search results
-            search_results = await self.services.hybrid_retriever.search(
-                query
-            )
-            formatted_search_results, top_result = (
-                self.services.hybrid_retriever.format_search_results(
-                    search_results
-                )
-            )
-            # Response agent
+            need_search = reasoning_result.data.need_search
+            
+            if need_search:
+                all_search_results = []
+                for eq in reasoning_result.data.expanded_query:
+                    search_results = await self.services.hybrid_retriever.search(eq)
+                    all_search_results.append(search_results)
+                logger.info(f"All search results: {all_search_results}")
+            else:
+                all_search_results = []
+
             result = await self.response_agent.run(
                 self.cfg.query_handler_prompts.response_agent['user_prompt'].format(
                     query=query,
                     message_history=msg_history,
-                    search_results=formatted_search_results
+                    search_results=all_search_results
                 )
             )
             response = result.data.response
             intent = result.data.intent
             logger.info(f"Intent: {intent}, "
-                        f"Formatted Result: {formatted_search_results}"
+                        f"Formatted Result: {all_search_results}"
                         f", Response: {response}")
             await chat_history.add_turn(
                 MessageRole.BOT,
                 response,
                 metadata={
                     'intent': intent,
-                    'top_search_result': top_result
+                    'all_search_results': all_search_results
                 }
             )
-            return response, intent, top_result
+            return response
                 
         except Exception as e:
             logger.error(f"Error handling query: {e}")

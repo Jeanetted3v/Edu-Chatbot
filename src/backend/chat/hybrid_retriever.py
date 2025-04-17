@@ -8,10 +8,16 @@ from rank_bm25 import BM25Okapi
 from utils.settings import SETTINGS
 
 
+class SearchMetadata(BaseModel):
+    category: str
+    keywords: List[str]
+    related_topics: List[str]
+
+
 class SearchResult(BaseModel):
     content: str
     score: float
-    metadata: Dict[str, Any]
+    metadata: SearchMetadata
 
 
 class HybridRetriever:
@@ -105,11 +111,19 @@ class HybridRetriever:
         # Sort results by combined score
         search_results = []
         for doc, meta, score in zip(documents, metadatas, combined_scores):
+            keywords = json.loads(meta.get('keywords', '[]'))
+            topics = json.loads(meta.get('related_topics', '[]'))
+            metadata_object = SearchMetadata(
+                category=meta.get('category', ''),
+                keywords=keywords,
+                related_topics=topics
+            )
+
             search_results.append(
                 SearchResult(
                     content=doc,
                     score=score,
-                    metadata=meta
+                    metadata=metadata_object
                 )
             )
             
@@ -124,13 +138,19 @@ class HybridRetriever:
         max_score = float('-inf')
 
         for result in search_results:
+            try:
+                keywords = json.loads(result.metadata.keywords)
+                topics = json.loads(result.metadata.related_topics)
+            except json.JSONDecodeError:
+                keywords = []
+                topics = []
             formatted_result = {
                 'content': result.content,
                 'relevance_score': f"{result.score:.2f}",
                 'metadata': {
                     'category': result.metadata.get('category', ''),
-                    'keywords': result.metadata.get('keywords', []),
-                    'related_topics': result.metadata.get('related_topics', [])
+                    'keywords': keywords,
+                    'related_topics': topics
                 }
             }
             formatted_results.append(formatted_result)

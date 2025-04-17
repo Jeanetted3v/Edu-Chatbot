@@ -1,9 +1,9 @@
 csv_path: ./data/excel_syn_data.csv
 
 hybrid_retriever:
-  semantic_weight: 0.9
-  keyword_weight: 0.1
-  top_k: 5
+  semantic_weight: 0.7
+  keyword_weight: 0.3
+  top_k: 2
   persist_dir: ./data/embeddings
   collection: syn_data   # Collection name in chromadb, using syn_data for testing
 
@@ -21,8 +21,8 @@ llm:
 
 query_handler:
   llm:
-    provider: openai_async  # openai, openai_async, azure, azure_async, google-gla, anthropic
-    model_name: gpt-4.1-mini # gpt-4o, claude-3-5-sonnet-latest, gemini-2.0-flash, etc
+    provider: azure_async  # openai, openai_async, azure, azure_async, google-gla, anthropic
+    model_name: gpt-4o-mini # gpt-4o, claude-3-5-sonnet-latest, gemini-2.0-flash, etc
     # api_version: 2024-09-01-preview  # for AzureOpenAI
   # or just llm model names: https://ai.pydantic.dev/api/models/base/#pydantic_ai.models.KnownModelName 
   reasoning_model: "openai:gpt-4.1-mini"          # "groq:deepseek-r1-distill-qwen-32b"
