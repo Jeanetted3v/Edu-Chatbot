@@ -25,8 +25,8 @@ query_handler:
     model_name: gpt-4.1-mini # gpt-4o, claude-3-5-sonnet-latest, gemini-2.0-flash, etc
     # api_version: 2024-09-01-preview  # for AzureOpenAI
   # or just llm model names: https://ai.pydantic.dev/api/models/base/#pydantic_ai.models.KnownModelName 
-  reasoning_model: "openai:gpt-4o"          # "groq:deepseek-r1-distill-qwen-32b"
-  handle_query_model: "openai:gpt-4o-mini"  
+  reasoning_model: "openai:gpt-4.1-mini"          # "groq:deepseek-r1-distill-qwen-32b"
+  handle_query_model: "openai:gpt-4.1-mini"  
 
 human_agent:
   sentiment_threshold: 0.4
