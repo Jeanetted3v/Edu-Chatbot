@@ -32,3 +32,4 @@ pytest
 langchain-groq
 nemoguardrails
 langchain-nvidia-ai-endpoints
+guardrails-ai

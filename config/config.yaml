@@ -1,8 +1,8 @@
 csv_path: ./data/excel_syn_data.csv
 
 hybrid_retriever:
-  semantic_weight: 0.7
-  keyword_weight: 0.3
+  semantic_weight: 0.9
+  keyword_weight: 0.1
   top_k: 5
   persist_dir: ./data/embeddings
   collection: syn_data   # Collection name in chromadb, using syn_data for testing
@@ -28,7 +28,6 @@ query_handler:
   reasoning_model: "openai:gpt-4o"          # "groq:deepseek-r1-distill-qwen-32b"
   handle_query_model: "openai:gpt-4o-mini"  
 
-  
 human_agent:
   sentiment_threshold: 0.4
   confidence_threshold: 0.7
@@ -59,6 +58,28 @@ simulator:
 
 api:
   reload: False
+
+# Nemo Guardrails
+models:
+  - type: main
+    engine: openai
+    model_name: gpt-4o-mini
+  # - type: content_safety
+  #   engine: nvidia_ai_endpoints
+  #   model: nvidia/llama-3.1-nemoguard-8b-content-safety
+
+rails:
+  input:
+    flows:
+      - content safety check input $model=content_safety
+  output:
+    flows:
+      - content safety check output $model=content_safety
+    streaming:
+      chunk_size: 200
+      context_size: 50
+streaming: True
+
 
 defaults:
   - _self_ 
