@@ -86,6 +86,7 @@ async def clean_text(input_file_path: str, output_file_path: str) -> None:
         content = file.read()
     cleaned_content = re.sub(r'!\[.*?\]\(.*?\)', '', content)  # remove images
     cleaned_content = re.sub(r'\[.*?\]\(.*?\)', '', cleaned_content)  # remove links
+    cleaned_content = re.sub(r'^\s*[-*•]\s+', '', cleaned_content, flags=re.MULTILINE)  # remove bullet points
     with open(output_file_path, 'w', encoding='utf-8') as file:
         file.write(cleaned_content)
     
@@ -121,15 +122,15 @@ async def translate(
 
 
 async def crawler_main(cfg: DictConfig) -> None:
-    await crawl(
-        cfg.crawler.crawl_data_dir,
-        cfg.crawler.raw_crawled_file_name
-    )
+    # await crawl(
+    #     cfg.crawler.crawl_data_dir,
+    #     cfg.crawler.raw_crawled_file_name
+    # )
     input_file_path = os.path.join(
         cfg.crawler.crawl_data_dir, cfg.crawler.raw_crawled_file_name
     )
     output_file_path = os.path.join(
-        cfg.crawler.data_ingest_dir, cfg.crawler.cleaned_file_name
+        cfg.crawler.crawl_data_dir, cfg.crawler.cleaned_file_name
     )
     await clean_text(
         input_file_path,

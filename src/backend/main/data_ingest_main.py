@@ -1,4 +1,6 @@
-"""To run: python -m src.backend.main.data_ingest_main"""
+"""To run:
+python -m src.backend.main.data_ingest_main
+"""
 import logging
 import hydra
 import asyncio

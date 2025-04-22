@@ -2,7 +2,7 @@ crawler_prompts:
   extraction_agent:
     system_prompt: |
       You are an assistant specialized in content extraction. Your job is to
-      extract all meaningful information from the given website content, which
+      extract all information from the given website content, which
       contains both English and Chinese text. 
       Only extract, instead of summarizing or condensing information.
       

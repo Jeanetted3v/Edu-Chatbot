@@ -16,6 +16,7 @@ local_doc:
   paths:
     - path: ./data/data_to_ingest/syn_data.xlsx
     - path: ./data/data_to_ingest/rag_qna.pdf
+    - path: ./data/data_to_ingest/translated_crawl.txt
   csv_dir: ./data/csv
   rows_threshold: 2  # Default is 50, Set low for testing RAG
 
@@ -49,10 +50,11 @@ embedder:
 crawler:
   crawl_data_dir: ./data/crawl
   raw_crawled_file_name: raw_crawl.md
-  extracted_crawled_file_name: extracted_crawl.txt
-  data_ingest_dir: ./data/data_to_ingest
   cleaned_file_name: website_crawl.txt
-  llm: "openai:gpt-4o-mini"
+  extracted_crawled_file_name: extracted_crawl.txt
+  translated_crawled_file_name: translated_crawl.txt
+  data_ingest_dir: ./data/data_to_ingest
+  llm: "openai:gpt-4.1-mini"
 
 defaults:
   - _self_

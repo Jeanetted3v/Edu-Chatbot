@@ -68,13 +68,13 @@ class LocalDocLoader:
             logger.error(f"Error converting Excel to CSV: {str(e)}")
             raise
     
-    def _load_pdf(self, file_path: str) -> LoadedUnstructuredDocument:
+    def _load_pdf(self, file_path: str) -> List[LoadedUnstructuredDocument]:
         """Load a PDF document."""
         metadata = {
             'source': file_path,
             'type': 'pdf'
         }
-        try: 
+        try:
             with open(file_path, 'rb') as file:
                 pdf = pypdf.PdfReader(file)
                 if len(pdf.pages) == 0:
@@ -83,7 +83,7 @@ class LocalDocLoader:
                 total_chars = 0
                 
                 for i, page in enumerate(pdf.pages, 1):
-                    try: 
+                    try:
                         text = page.extract_text()
                         if text:
                             content.append(text)
@@ -101,29 +101,55 @@ class LocalDocLoader:
                 if not full_text.strip():
                     raise ValueError("No text could be extracted from "
                                      f"PDF {file_path}")
-                doc = LoadedUnstructuredDocument(
-                    content=full_text, metadata=metadata)
-                return doc  
+                doc = [LoadedUnstructuredDocument(
+                    content=full_text, metadata=metadata)]
+                return doc
         except FileNotFoundError:
             raise FileNotFoundError(f"PDF file not found: {file_path}")
         except Exception as e:
             raise ValueError(f"Error reading PDF {file_path}: {str(e)}")
     
-    def _load_document(self, cfg: DictConfig, path_cfg: DictConfig) -> Union[
-        LoadedUnstructuredDocument,
-        List[LoadedStructuredDocument]
-    ]:
-        """Load a document and return its contents with metadata.
+    def _load_txt(self, file_path: str) -> List[LoadedUnstructuredDocument]:
+        """Load a TXT document."""
+        metadata = {
+            'source': file_path,
+            'type': 'txt'
+        }
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+                if not content.strip():
+                    raise ValueError(f"TXT file {file_path} is empty")
+                metadata['length'] = str(len(content))
+                return [LoadedUnstructuredDocument(
+                    content=content, metadata=metadata)]
+        except FileNotFoundError:
+            raise FileNotFoundError(f"TXT file not found: {file_path}")
+        except Exception as e:
+            raise ValueError(f"Error reading TXT file {file_path}: {str(e)}")
+
+    def _load_document(
+        self, cfg: DictConfig, path_cfg: DictConfig
+    ) -> Union[LoadedUnstructuredDocument,
+               List[Union[LoadedUnstructuredDocument, LoadedStructuredDocument]]
+               ]:
+        """Load a document based on its file type and return its contents with
+        metadata.
         
         Args:
-            file_path: Path to the document file
+            cfg: Hydra configuration object containing settings for document
+            loading.
+            path_cfg: Configuration object containing the path and related
+            settings for the document.
             
         Returns:
-            LoadedDocument object containing text content and metadata
+            A LoadedUnstructuredDocument or a list of LoadedStructuredDocument
+            objects containing the document's content and metadata.
         
         Raises:
-            ValueError: If file format is not supported
-            FileNotFoundError: If file doesn't exist
+            ValueError: If the file format is not supported or if there is an
+            issue with the file content.
+            FileNotFoundError: If the specified file does not exist.
         """
         file_path = path_cfg.path
         if not os.path.exists(file_path):
@@ -133,6 +159,8 @@ class LocalDocLoader:
         
         if file_ext == '.pdf':
             return self._load_pdf(file_path)
+        elif file_ext == '.txt':
+            return self._load_txt(file_path)
         elif file_ext in ['.xlsx', '.xls']:
             csv_paths = self.convert_excel_to_csv(
                 file_path, cfg.local_doc.csv_dir
@@ -143,6 +171,7 @@ class LocalDocLoader:
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
+        # only executes for Excel and CSV files
         loaded_docs = []
         for csv_path in csv_paths:
             df = pd.read_csv(csv_path)
