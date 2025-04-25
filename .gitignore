@@ -23,6 +23,8 @@ venv/
 data/*
 !data/.gitkeep
 
+!.gitignore
+
 # evaluations
 evaluations/*
 !evaluations/ragas_reports/.gitkeep
