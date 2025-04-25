@@ -47,39 +47,38 @@ sentiment_analyzer:
   use_llm_validation: false
   default_score: 0.7
 
+local_doc:
+  paths:
+    - path: ./data/data_to_ingest/syn_data.xlsx
+    - path: ./data/data_to_ingest/rag_qna.pdf
+    - path: ./data/data_to_ingest/translated_crawl.txt
+  csv_dir: ./data/csv
+  rows_threshold: 2 
+
 simulator:
   enabled: True
   simulator_llm: "openai:gpt-4.1-mini"   # either include the provide:model_name format or use the format llm below
-  llm:
+  max_exchange_limit: 7
+  num_simulations: 1
+  output_dir: ./data/simulations
+  first_query: "I would like to make an inquiry"
+  chatbot_llm:
     provider: openai_async  # openai, openai_async, azure, azure_async, google-gla, anthropic
     model_name: gpt-4.1-mini # gpt-4o, claude-3-5-sonnet-latest, gemini-2.0-flash, etc
-  max_exchange_limit: 10
-  num_simulations: 1
+  user_llm:
+    provider: openai_async
+    model_name: gpt-4.1-mini
+  gt_llm:
+    provider: openai_async
+    model_name: gpt-4.1-mini
+
+guardrails:
+  competitors:   # example competitors to be filtered out
+    - ABC education 
+    - MindChamp
 
 api:
   reload: False
-
-# Nemo Guardrails
-models:
-  - type: main
-    engine: openai
-    model_name: gpt-4o-mini
-  # - type: content_safety
-  #   engine: nvidia_ai_endpoints
-  #   model: nvidia/llama-3.1-nemoguard-8b-content-safety
-
-rails:
-  input:
-    flows:
-      - content safety check input $model=content_safety
-  output:
-    flows:
-      - content safety check output $model=content_safety
-    streaming:
-      chunk_size: 200
-      context_size: 50
-streaming: True
-
 
 defaults:
   - _self_ 
@@ -87,4 +86,5 @@ defaults:
   - human_agent_prompts
   - query_handler_prompts
   - simulator_prompts
+  - llm_gt_prompts
 
