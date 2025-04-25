@@ -23,6 +23,9 @@ tiktoken
 pypdf
 openpyxl
 rank-bm25
+bm25s 
+pystemmer
+jax[cpu]
 nltk
 motor
 vaderSentiment
@@ -30,7 +33,5 @@ ragas
 deepeval==2.7.0
 pytest
 langchain-groq
-nemoguardrails
-langchain-nvidia-ai-endpoints
-guardrails-ai
 crawl4ai
+dspy
