@@ -198,7 +198,8 @@ class QueryHandler:
             reasoning_result = await self.reasoning_agent.run(
                 self.cfg.query_handler_prompts.reasoning_agent['user_prompt'].format(
                     query=query,
-                    message_history=msg_history
+                    message_history=msg_history,
+                    competitors=self.cfg.guardrails.competitors,
                 ),
             )
             logger.info(f"Reasoning result: {reasoning_result.data}")
@@ -217,7 +218,8 @@ class QueryHandler:
                 self.cfg.query_handler_prompts.response_agent['user_prompt'].format(
                     query=query,
                     message_history=msg_history,
-                    search_results=all_search_results
+                    search_results=all_search_results,
+                    competitors=self.cfg.guardrails.competitors,
                 )
             )
             response = result.data.response
