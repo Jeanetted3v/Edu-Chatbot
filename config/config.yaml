@@ -1,11 +1,15 @@
 csv_path: ./data/excel_syn_data.csv
 
 hybrid_retriever:
+  persist_dir: ./data/embeddings
+  collection: syn_data
   semantic_weight: 0.7
   keyword_weight: 0.3
-  top_k: 2
-  persist_dir: ./data/embeddings
-  collection: syn_data   # Collection name in chromadb, using syn_data for testing
+  top_k: 10
+  reranker_top_k: 2
+  use_reranker: true
+  reranker_model: cross-encoder/mmarco-mMiniLMv2-L12-H384-v1  # multilingual
+
 
 mongodb:
   db_name: syn_db  # Database name in MongoDB

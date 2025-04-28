@@ -225,7 +225,7 @@ class QueryHandler:
             response = result.data.response
             intent = result.data.intent
             logger.info(f"Intent: {intent}, "
-                        f"Formatted Result: {all_search_results}"
+                        f"Seaarch Result: {all_search_results}"
                         f", Response: {response}")
             await chat_history.add_turn(
                 MessageRole.BOT,

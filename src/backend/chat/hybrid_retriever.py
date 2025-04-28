@@ -5,6 +5,8 @@ import chromadb
 from chromadb.config import Settings
 import chromadb.utils.embedding_functions as embedding_functions
 from rank_bm25 import BM25Okapi
+from sentence_transformers import CrossEncoder
+import torch
 from utils.settings import SETTINGS
 
 
@@ -35,6 +37,10 @@ class HybridRetriever:
             name=self.cfg.hybrid_retriever.collection,
             embedding_function=self.embedding_function
         )
+        if cfg.hybrid_retriever.use_reranker:
+            self.reranker = CrossEncoder(cfg.hybrid_retriever.reranker_model)
+        else:
+            self.reranker = None
         
     def _normalize_scores(self, scores: List[float]) -> List[float]:
         """Min-max normalization of scores"""
@@ -69,6 +75,23 @@ class HybridRetriever:
         keyword_scores = bm25.get_scores(tokenized_query)
         # 0-1 normalize scores
         return self._normalize_scores(keyword_scores.tolist())
+
+    async def _rerank_results(
+        self, query: str, search_results: List[SearchResult]
+    ) -> List[SearchResult]:
+        """Rerank search results using cross-encoder model"""
+        if not self.reranker or not search_results:
+            return search_results
+        # Prepare query-document pairs for reranking
+        query_doc_pairs = [(query, result.content) for result in search_results]
+        # Get scores from cross-encoder
+        with torch.no_grad():
+            scores = self.reranker.predict(query_doc_pairs)
+        # Update scores in search results
+        for i, score in enumerate(scores):
+            search_results[i].score = float(score)
+        # Return reranked results
+        return sorted(search_results, key=lambda x: x.score, reverse=True)
 
     async def search(
         self,
@@ -126,36 +149,9 @@ class HybridRetriever:
                     metadata=metadata_object
                 )
             )
-            
-        return sorted(search_results, key=lambda x: x.score, reverse=True)
-    
-    def format_search_results(
-        self, search_results: List[SearchResult]
-    ) -> tuple:
-        """Format search results for inclusion in prompt context"""
-        formatted_results = []
-        top_result = None
-        max_score = float('-inf')
-
-        for result in search_results:
-            try:
-                keywords = json.loads(result.metadata.keywords)
-                topics = json.loads(result.metadata.related_topics)
-            except json.JSONDecodeError:
-                keywords = []
-                topics = []
-            formatted_result = {
-                'content': result.content,
-                'relevance_score': f"{result.score:.2f}",
-                'metadata': {
-                    'category': result.metadata.get('category', ''),
-                    'keywords': keywords,
-                    'related_topics': topics
-                }
-            }
-            formatted_results.append(formatted_result)
-            if result.score > max_score:
-                max_score = result.score
-                top_result = result.content
+        search_results = sorted(search_results, key=lambda x: x.score, reverse=True)
+        if self.cfg.hybrid_retriever.use_reranker:
+            search_results = await self._rerank_results(query, search_results)
+        search_results = search_results[:self.cfg.hybrid_retriever.reranker_top_k]
+        return search_results    
         
-        return json.dumps(formatted_results, indent=2), top_result
