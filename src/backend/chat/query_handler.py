@@ -18,10 +18,12 @@ class ReasongingResult(BaseModel):
     expanded_query: List[str]
     need_search: bool
 
-class QueryHandlerResponse(BaseModel):
+
+class ResponseResult(BaseModel):
     """Response model for query handler"""
     response: str
     intent: str
+    rag_result_used: Optional[str]
     english_level: Optional[str]
     course_interest: Optional[str]
     lexile_level: Optional[str]
@@ -43,7 +45,7 @@ class QueryHandler:
         )
         self.response_agent = Agent(
             model=model,
-            result_type=QueryHandlerResponse,
+            result_type=ResponseResult,
             system_prompt=self.cfg.query_handler_prompts.response_agent['sys_prompt']
 
         )
@@ -224,15 +226,16 @@ class QueryHandler:
             )
             response = result.data.response
             intent = result.data.intent
+            rag_result_used = result.data.rag_result_used
             logger.info(f"Intent: {intent}, "
-                        f"Seaarch Result: {all_search_results}"
+                        f"RAG Result used: {rag_result_used}"
                         f", Response: {response}")
             await chat_history.add_turn(
                 MessageRole.BOT,
                 response,
                 metadata={
                     'intent': intent,
-                    'all_search_results': all_search_results
+                    'rag_result_used': rag_result_used
                 }
             )
             return response
