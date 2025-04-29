@@ -156,7 +156,7 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
         setLoading(false);
         // Handle full history update if needed
         // Convert server messages to our UI format
-        const historyMessages = data.messages.map((msg) => ({
+        const historyMessages = data.messages.map((msg: ApiMessage) => ({
           id: `${msg.timestamp}-${Math.random()}`,
           content: msg.content,
           sender: mapRoleToSender(msg.role),
@@ -164,7 +164,7 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
         }));
         
         // Sort messages by time
-        historyMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        historyMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
         
         // Update our messages state
         if (historyMessages.length > 0) {

@@ -183,7 +183,7 @@ export default function StaffChat({ selectedSession, activeSessions }: StaffChat
             }
             
             const updatedMessages = [...prev, newMessage];
-            updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+            updatedMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
             return updatedMessages;
           });
         } else if (data.type === 'history') {
