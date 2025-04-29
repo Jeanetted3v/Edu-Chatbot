@@ -167,8 +167,8 @@ gdrive_doc:
 - All chat histories are saved in MongoDB, which allows for tracing, further analysis and prompt enhancements.
 
 <span style="color:#E91E63">📊 Evaluation</span>
-- Metrics include answer relevancy, faithfulness, context precision, answer correctness.
-- Conversational metrics are also used here since it involves multi-turn conversations.
+- Ragas: Metrics include answer relevancy, faithfulness, context precision, answer correctness.
+- DeepEval: Conversational metrics are also used here since it involves multi-turn conversations.
 - Evaluation results are logged for continuous improvement of the system.
 
 
