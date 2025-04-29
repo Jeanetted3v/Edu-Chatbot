@@ -62,7 +62,7 @@ local_doc:
 simulator:
   enabled: True
   simulator_llm: "openai:gpt-4.1-mini"   # either include the provide:model_name format or use the format llm below
-  max_exchange_limit: 7
+  max_exchange_limit: 5
   num_simulations: 1
   output_dir: ./data/simulations
   first_query: "I would like to make an inquiry"

@@ -19,7 +19,7 @@ from src.backend.utils.settings import SETTINGS
 logger = logging.getLogger(__name__)
 
 
-lm = dspy.LM('openai/gpt-4o-mini', api_key=SETTINGS.OPENAI_API_KEY)
+lm = dspy.LM('openai/gpt-4.1-mini', api_key=SETTINGS.OPENAI_API_KEY)
 dspy.configure(lm=lm)
 
 
