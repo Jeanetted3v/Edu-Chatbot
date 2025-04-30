@@ -40,5 +40,6 @@ defaults:
   - _self_
   - input_doc_agent_prompts  # doc structure and summary, website url
   - prompt_creator_prompts  # create prompt
+  - prompt_validator_prompts  # check prompt
   - prompt_optimizer_prompts  # optimize prompt
-  - prompt_checker_prompts  # check prompt
+  
