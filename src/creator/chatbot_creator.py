@@ -15,6 +15,15 @@ from src.backend.evaluation.simulator_no_db import ChatBotSimulator
 logger = logging.getLogger(__name__)
 
 
+class Summary(BaseModel):
+    title: str
+    summary: str
+
+
+class InputDocAgentResult(BaseModel):
+    summary: List[Summary]
+
+
 class PromptCreatorResult(BaseModel):
     chatbot_system_prompt: str
     simulator_system_prompt: str
@@ -36,7 +45,7 @@ class ChatbotCreator():
         self.input_doc_agent_model = LLMModelFactory.create_model(input_doc_agent_model_config)
         self.input_doc_agent = Agent(
             model=self.input_doc_agent_model,
-            result_type=str,
+            result_type=InputDocAgentResult,
             system_prompt=self.cfg.input_doc_agent_prompts['system_prompt'],
         )
         prompt_creator_model_config = dict(self.cfg.prompt_creator)
@@ -46,12 +55,12 @@ class ChatbotCreator():
             result_type=PromptCreatorResult,
             system_prompt=self.cfg.prompt_creator_prompts['system_prompt'],
         )
-        prompt_checker_model_config = dict(self.cfg.prompt_checker)
-        self.prompt_checker_model = LLMModelFactory.create_model(prompt_checker_model_config)
-        self.prompt_checker_agent = Agent(
-            model=self.prompt_checker_model,
+        prompt_validator_model_config = dict(self.cfg.prompt_validator)
+        self.prompt_validator_model = LLMModelFactory.create_model(prompt_validator_model_config)
+        self.prompt_validator_agent = Agent(
+            model=self.prompt_validator_model,
             result_type=Tuple[str, str],
-            system_prompt=self.cfg.prompt_checker_prompts['system_prompt'],
+            system_prompt=self.cfg.prompt_validator_prompts['system_prompt'],
         )
         prompt_optimizer_model_config = dict(self.cfg.prompt_optimizer)
         self.prompt_optimizer_model = LLMModelFactory.create_model(prompt_optimizer_model_config)
@@ -66,8 +75,11 @@ class ChatbotCreator():
         input_doc = self.simulator.prepare_rag_context()
 
         formatted_input_doc = self.cfg.input_doc_agent_prompts['user_prompt'].format(input_doc=input_doc)
-        summary = await self.input_doc_agent.run(prompt=formatted_input_doc)
-        return summary
+        result = await self.input_doc_agent.run(prompt=formatted_input_doc)
+        parsed = InputDocAgentResult.model_validate(result.data)
+        summary_dict = parsed.model_dump()
+        summary_str = json.dumps(summary_dict, indent=2, ensure_ascii=False)
+        return summary_str
     
     async def create_prompt(self, input_doc_summary: str) -> Tuple[str, str]:
         """Create a prompt using the prompt_creator_agent."""
@@ -91,11 +103,11 @@ class ChatbotCreator():
         self, simulator_prompt: str, chatbot_prompt: str
     ) -> Tuple[str, str]:
         """Check the prompts using the prompt_checker_agent."""
-        formatted_prompt = self.cfg.prompt_checker_prompts['user_prompt'].format(
+        formatted_prompt = self.cfg.prompt_validator_prompts['user_prompt'].format(
             simulator_prompt=simulator_prompt,
             chatbot_prompt=chatbot_prompt
         )
-        prompts = await self.prompt_checker_agent.run(
+        prompts = await self.prompt_validator.run(
             prompt=formatted_prompt,
         )
         new_chatbot_system_prompt = prompts.data.new_chatbot_system_prompt
