@@ -1,0 +1,44 @@
+# determine if this ia a new prompt creator or merely optimizing
+mode: create   # optimize or create
+
+# docs to ingest
+local_doc:
+paths:
+  - path: ./data/data_to_ingest/syn_data.xlsx
+  - path: ./data/data_to_ingest/rag_qna.pdf
+  - path: ./data/data_to_ingest/translated_crawl.txt
+csv_dir: ./data/csv
+rows_threshold: 2  # Default is 50, Set low for testing RAG
+
+# file directories
+data_ingest_dir: ./data/data_to_ingest_1
+simulation_dir: ./data/simulations
+simulator_prompts_filepath: ./config/simulator_prompts.yaml
+chatbot_prompts_filepath: ./config/query_handler_prompts.yaml
+
+# LLM models for different agents
+imput_doc_agent:
+  provider: azure_async
+  model: gpt-4.1-mini
+  temperature: 0.2
+prompt_creator:
+  provider: azure_async
+  model: gpt-4.1-mini
+  temperature: 0.2
+prompt_checker:
+  provider: azure_async
+  model: gpt-4.1-mini
+  temperature: 0.2
+prompt_optimizer:
+  provider: azure_async
+  model: gpt-4.1-mini
+  temperature: 0.2
+
+
+
+defaults:
+  - _self_
+  - input_doc_agent_prompts  # doc structure and summary, website url
+  - prompt_creator_prompts  # create prompt
+  - prompt_optimizer_prompts  # optimize prompt
+  - prompt_checker_prompts  # check prompt

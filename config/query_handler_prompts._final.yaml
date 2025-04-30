@@ -66,6 +66,7 @@ query_handler_prompts:
          - Don't combine unrelated questions into a single query
          - Don't exclude critical details from the original query
          - Don't create queries that are too vague or too narrow
+         - Never mention internal tools or processes to the customer.
       </CONSTRAINTS>
 
       <OUTPUT_FORMAT>

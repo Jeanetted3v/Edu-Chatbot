@@ -84,7 +84,7 @@ class ChatBotSimulator:
         self.cfg = cfg
         self.hybrid_retriever = HybridRetriever(self.cfg)
         self.documents = load_local_doc(cfg)
-        self.rag_context = self._prepare_rag_context()
+        self.rag_context = self.prepare_rag_context()
         chatbot_model_config = dict(self.cfg.simulator.chatbot_llm)
         self.chatbot_model = LLMModelFactory.create_model(chatbot_model_config)
         logger.info(f'Chatbot LLM model instance created: {self.chatbot_model}')
@@ -115,7 +115,7 @@ class ChatBotSimulator:
             system_prompt=self.cfg.llm_gt_prompts.system_prompt
         )
 
-    def _prepare_rag_context(self) -> str:
+    def prepare_rag_context(self) -> str:
         """Prepare RAG context from loaded documents"""
         rag_context = ''
         for doc in self.documents:
@@ -281,6 +281,30 @@ class ChatBotSimulator:
         except Exception as e:
             logger.error(f'Error running simulations: {e}')
             return
+        
+    def extract_customer_bot(
+        self, json_file_paths: List[str]
+    ) -> List[Dict[str, str]]:
+        """Extract customer inquiries and bot responses from a json file
+        To use in prompt creation process.
+        """
+        all_turns = []
+        for path in json_file_paths:
+            try:
+                with open(path, 'r') as f:
+                    data = json.load(f)
+
+                for entry in data:
+                    turn = {
+                        'Customer': entry.get('customer_inquiry', '').strip(),
+                        'Bot': entry.get('bot_response', '').strip(),
+                        'session_id': entry.get('session_id', '')
+                    }
+                    all_turns.append(turn)
+            except Exception as e:
+                print(f"⚠️ Error reading {path}: {e}")
+        return all_turns
+
 
 
 @hydra.main(
