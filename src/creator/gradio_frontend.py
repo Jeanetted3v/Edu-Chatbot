@@ -1,5 +1,6 @@
 """To run
 python -m src.creator.gradio_frontend
+Open: http://127.0.0.1:7860
 """
 
 import gradio as gr
