@@ -26,7 +26,11 @@ class InputDocAgentResult(BaseModel):
 
 class PromptCreatorResult(BaseModel):
     chatbot_system_prompt: str
+
+
+class ReasoningSimulatorCreatorResult(BaseModel):
     simulator_system_prompt: str
+    reasoning_system_prompt: str
 
 
 class PromptOptimizerResult(BaseModel):
