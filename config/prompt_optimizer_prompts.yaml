@@ -11,8 +11,6 @@ prompt_optimizer_prompts:
     Response should be in JSON format with the following keys:
     - chatbot_prompt: The optimized prompt for the chatbot.
     - simulator_prompt: The optimized prompt for the simulator.
-    - convo_feedback: a json array of feedback for each conversation.
-    - optimize: if user wants to further optimize the prompt, return true, else false.
     </OUTPUT_FORMAT>
 
   user_prompt: |
@@ -20,4 +18,4 @@ prompt_optimizer_prompts:
     
     Existing Chatbot Prompt: {{chatbot_prompt}}
     Existing Simulator Prompt: {{simulator_prompt}}
-    Simulated Conversations: {{conversations}}
+    Simulated Conversations and feedbacks from humans: {{conversation_feedback}}

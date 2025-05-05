@@ -109,9 +109,11 @@ prompt_creator_prompts:
     </SECTION PROMPTS>
 
     <OUTPUT_FORMAT>
-    The final output should include two prompts in Markdown format:  
-    1. **System prompt** for the AI Chatbot  
-    2. **Simulator prompt** for emulating customer inputs
+    The final output should be like the following, in JSON format:
+    1. chatbot_system_prompt: for the AI Chatbot  
+    2. simulator_system_prompt: for emulating customer inputs
+    3. assistant_respomse: to the user creating the prompt
+    5. is_complete: flag to indicate if the process is finished
     ---
 
     ### 🤖 Chatbot System Prompt

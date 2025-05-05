@@ -29,6 +29,9 @@ class InputDocAgentResult(BaseModel):
 
 class PromptCreatorResult(BaseModel):
     chatbot_system_prompt: str
+    simulator_system_prompt: str
+    assistant_response: str
+    is_complete: bool
 
 
 class ReasoningCreatorResult(BaseModel):
@@ -61,8 +64,10 @@ class PromptOptimizerResult(BaseModel):
 class ChatbotCreator():
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
-        input_doc_agent_model_config = dict(self.cfg.creator.input_doc_agent)
+        self.mode = cfg.creator.mode
         self.simulator = ChatBotSimulator(self.cfg)
+        input_doc_agent_model_config = dict(self.cfg.creator.input_doc_agent)
+        logger.info(f"Input doc agent model config: {input_doc_agent_model_config}")
         self.input_doc_agent_model = LLMModelFactory.create_model(input_doc_agent_model_config)
         self.input_doc_agent = Agent(
             model=self.input_doc_agent_model,
@@ -101,53 +106,97 @@ class ChatbotCreator():
     async def summarize_input_doc(self) -> str:
         """Summarize the input document using the input_doc_agent."""
         input_doc = self.simulator.prepare_rag_context()
-
-        formatted_input_doc = self.cfg.creator.input_doc_agent_prompts['user_prompt'].format(input_doc=input_doc)
-        result = await self.input_doc_agent.run(prompt=formatted_input_doc)
+        formatted_input_doc = self.cfg.input_doc_agent_prompts['user_prompt'].format(input_doc=input_doc)
+        logger.info(f"Formatted input doc: {formatted_input_doc}")
+        result = await self.input_doc_agent.run(formatted_input_doc)
+        logger.info(f"Result from input doc agent: {result}")
         parsed = InputDocAgentResult.model_validate(result.data)
         summary_dict = parsed.model_dump()
         summary_str = json.dumps(summary_dict, indent=2, ensure_ascii=False)
         return summary_str
     
-    async def create_prompt(self, input_doc_summary: str) -> Tuple[str, str]:
+    async def create_prompt(
+        self, message: str, history: List[Tuple[str, str]] = None
+    ) -> Tuple[str, str, str]:
         """Create a prompt using the prompt_creator_agent."""
-        formatted_prompt = self.cfg.creator.prompt_creator_prompts['user_prompt'].format(
-            input_doc_summary=input_doc_summary
+        if history is None:
+            history = []
+        input_doc_summary = app_state.get("summary", "")
+        if not input_doc_summary:
+            raise ValueError("Document summary is required to create or optimize prompts")
+        # Format conversation for the model
+        conversation = ""
+        for user_msg, assistant_msg in history:
+            conversation += f"User: {user_msg}\nAssistant: {assistant_msg}\n\n"
+        conversation += f"User: {message}\n"  # add current message
+        
+        if self.mode == "optimize":
+            simulator_prompt = self.cfg.simulator_prompts['system_prompt']
+            chatbot_prompt = self.cfg.query_handler_prompts['response_agent']['sys_prompt']
+            reasoning_prompt = self.cfg.query_handler_prompts['reasoning_agent']['sys_prompt']
+
+            # Store in app_state
+            app_state["sim_prompt"] = simulator_prompt
+            app_state["chat_prompt"] = chatbot_prompt
+            app_state["reasoning_prompt"] = reasoning_prompt
+            return (
+                "Loaded existing prompts. Ready to proceed.",
+                history,
+                True,
+                simulator_prompt,
+                chatbot_prompt
+            )
+
+        # When mode = create
+        formatted_prompt = self.cfg.prompt_creator_prompts['user_prompt'].format(
+            input_doc_summary=input_doc_summary,
+            conversation=conversation,
         )
-        prompts = await self.prompt_creator_agent.run(
-            prompt=formatted_prompt,
-        )
-        simulator_prompt = prompts.data.simulator_system_prompt
-        chatbot_prompt = prompts.data.chatbot_system_prompt
-        reasoning_prompt = await self.create_reasoning_prompt(
-            chatbot_prompt=chatbot_prompt,
-            input_doc_summary=input_doc_summary
-        )
-        simulator_prompt, chatbot_prompt = await self.validate_prompt(
-            simulator_prompt=simulator_prompt,
-            chatbot_prompt=chatbot_prompt
-        )
-        # update working prompt files
-        self.update_prompt_files(
+        result = await self.prompt_creator_agent.run(formatted_prompt)
+        simulator_prompt = result.data.simulator_system_prompt
+        chatbot_prompt = result.data.chatbot_system_prompt
+        assistant_response = result.data.assistant_response
+        is_complete = result.data.is_complete
+        updated_history = history + [(message, assistant_response)]
+
+        if is_complete:
+            logger.info("Prompt creation completed successfully.")
+            reasoning_prompt = await self.create_reasoning_prompt(
+                chatbot_prompt=chatbot_prompt,
+                input_doc_summary=input_doc_summary
+            )
+            simulator_prompt, chatbot_prompt = await self.validate_prompt(
+                simulator_prompt=simulator_prompt,
+                chatbot_prompt=chatbot_prompt
+            )
+            app_state["sim_prompt"] = simulator_prompt
+            app_state["chat_prompt"] = chatbot_prompt
+            app_state["reasoning_prompt"] = reasoning_prompt
+            # update working prompt files
+            self.update_prompt_files(
+                simulator_prompt,
+                chatbot_prompt,
+                reasoning_prompt
+            )
+        return (
+            assistant_response,
+            updated_history,
+            is_complete,
             simulator_prompt,
-            chatbot_prompt,
-            reasoning_prompt
+            chatbot_prompt
         )
-        return simulator_prompt, chatbot_prompt, reasoning_prompt
     
     async def create_reasoning_prompt(
         self, chatbot_prompt: str, input_doc_summary: str
     ) -> str:
         """Create a reasoning prompt using the reasoning_creator_agent."""
-        formatted_prompt = self.cfg.creator.reasoning_creator_prompts['user_prompt'].format(
+        formatted_prompt = self.cfg.reasoning_creator_prompts['user_prompt'].format(
             chatbot_prompt=chatbot_prompt,
             input_doc_summary=input_doc_summary,
         )
-        items = await self.reasoning_creator_agent.run(
-            prompt=formatted_prompt,
-        )
+        items = await self.reasoning_creator_agent.run(formatted_prompt)
         current_year = datetime.now().year
-        reasoning_prompt = self.cfg.creator.reasoning_agent_template.format(
+        reasoning_prompt = self.cfg.reasoning_agent_template.format(
             company_products_and_services=items.data.company_products_and_services,
             available_information_categories=items.data.available_information_categories,
             data_sources=items.data.data_sources,
@@ -162,13 +211,11 @@ class ChatbotCreator():
         self, simulator_prompt: str, chatbot_prompt: str
     ) -> Tuple[str, str]:
         """Check the prompts using the prompt_validator_agent."""
-        formatted_prompt = self.cfg.creator.prompt_validator_prompts['user_prompt'].format(
+        formatted_prompt = self.cfg.prompt_validator_prompts['user_prompt'].format(
             simulator_prompt=simulator_prompt,
             chatbot_prompt=chatbot_prompt
         )
-        prompts = await self.prompt_validator.run(
-            prompt=formatted_prompt,
-        )
+        prompts = await self.prompt_validator.run(formatted_prompt)
         new_chatbot_system_prompt = prompts.data.new_chatbot_system_prompt
         new_simulator_system_prompt = prompts.data.new_simulator_system_prompt
         return (
@@ -177,7 +224,10 @@ class ChatbotCreator():
         )
     
     def update_prompt_files(
-        self, simulator_prompt: str, chatbot_prompt: str, reasoning_prompt: str
+        self,
+        simulator_prompt: str,
+        chatbot_prompt: str,
+        reasoning_prompt: str = None
     ) -> None:
         """Update prompt file with the latest prompts."""
         sim_path = self.cfg.creator.simulator_prompts_filepath
@@ -196,7 +246,8 @@ class ChatbotCreator():
         with open(chat_path, "r") as f:
             chat_data = yaml.safe_load(f)
         chat_data["query_handler_prompts"]["response_agent"]["sys_prompt"] = chatbot_prompt
-        chat_data["query_handler_prompts"]["reasoning_agent"]["sys_prompt"] = reasoning_prompt
+        if reasoning_prompt:
+            chat_data["query_handler_prompts"]["reasoning_agent"]["sys_prompt"] = reasoning_prompt
         with open(chat_path, "w") as f:
             yaml.dump(chat_data, f)
 
@@ -244,42 +295,85 @@ class ChatbotCreator():
 
         logger.info(f"📦 Audit log saved to {file_path}")
 
-    async def optimize_prompts(
-        self, input_doc_summary: str
-    )-> Tuple[str, str, bool, List[ConvoFeedback]]:
+    async def generate_simulations(self) -> List[dict]:
+        """Generate simulation conversations with current prompts.
+        This is the single point of entry for simulation generation.
+        
+        Returns:
+            List of conversation dictionaries
+        """
+        # Clear the simulation directory
+        simulation_dir = self.cfg.simulator.output_dir
+        shutil.rmtree(simulation_dir, ignore_errors=True)
+        os.makedirs(simulation_dir, exist_ok=True)
+        
+        # Run the simulation with current prompts
+        logger.info("🔄 Running simulations with current prompts")
+        await self.simulator.run_simulations(
+            self.cfg.simulator.num_simulations)
+        
+        # Load and return the generated conversations
+        conversations = []
+        json_files = glob.glob(os.path.join(simulation_dir, '*.json'))
+        for file_path in json_files:
+            with open(file_path, 'r') as f:
+                conversation = json.load(f)
+                conversations.append(conversation)
+        
+        logger.info(f"✅ Generated {len(conversations)} conversations")
+        return conversations
+
+    async def optimize_prompts(self) -> Tuple[str, str]:
         """Optimize prompts using the prompt_optimizer_agent in a loop.
         Regenerates prompts until regenerate_prompts is False.
         Deletes previous simulation JSONs before each new simulation run.
         """
-        simulation_dir = self.cfg.simulator.output_dir
-        # Clear the simulation directory before each run
-        shutil.rmtree(simulation_dir, ignore_errors=True)
-        os.makedirs(simulation_dir, exist_ok=True)
-        # Run the simulation with the current prompts
-        await self.simulator.run_simulations(self.cfg.simulator.num_simulations)
-        old_simulator_prompt = self.cfg.simulator_prompts['system_prompt']
-        old_chatbot_prompt = self.cfg.query_handler_prompts['response_agent']['sys_prompt']
-        old_reasoning_prompt = self.cfg.query_handler_prompts['reasoning_agent']['sys_prompt']
+        input_doc_summary = app_state.get("summary", "")
+        if not input_doc_summary:
+            logger.error("No document summary found in app_state")
+            raise ValueError("Document summary is required for prompt optimization")
         
-        json_files = glob.glob(os.path.join(simulation_dir, '*.json'))
-        turns = self.simulator.extract_customer_bot(json_files)
-        # Format the conversation text for the checker prompt
-        conversation_examples = []
-        for i, turn in enumerate(turns, 1):
-            conversation_examples.append(f"Example {i}\nUser: {turn['customer_inquiry']}\nBot: {turn['bot_response']}")
-        conversation_block = "\n\n".join(conversation_examples)
+        feedback_history = app_state.get("feedback_history", [])
+        if not feedback_history:
+            logger.error("No feedback history found in app_state")
+            raise ValueError("Feedback is required for prompt optimization")
+        
+        # Get current prompts based on mode
+        old_simulator_prompt = app_state.get("sim_prompt", self.cfg.simulator_prompts['system_prompt'])
+        old_chatbot_prompt = app_state.get("chat_prompt", self.cfg.query_handler_prompts['response_agent']['sys_prompt'])
+        old_reasoning_prompt = app_state.get("reasoning_prompt", self.cfg.query_handler_prompts['reasoning_agent']['sys_prompt'])
+    
+        # Format feedback block with text representations
+        # Create ConvoFeedback objects for audit log
+        feedback_list = []
+        for fb in feedback_history:
+            for turn in fb["conversation"]:
+                feedback_obj = ConvoFeedback(
+                    customer_inquiry=turn["customer_inquiry"],
+                    bot_response=turn["bot_response"],
+                    feedback=fb["feedback"]
+                )
+                feedback_list.append(feedback_obj)  # Inside the inner loop
+
+        # Create formatted text for the prompt
+        feedback_text_list = []
+        for fb_obj in feedback_list:
+            feedback_text_list.append(
+                f"Conversation:\nUser: {fb_obj.customer_inquiry}\n"
+                f"Bot: {fb_obj.bot_response}\n\n"
+                f"Feedback: {fb_obj.feedback}"
+            )
+
+        feedback_block = "\n\n---\n\n".join(feedback_text_list)
         # Start Optimizing
-        formatted_prompt = self.cfg.creator.prompt_optimizer_prompts['user_prompt'].format(
+        formatted_prompt = self.cfg.prompt_optimizer_prompts['user_prompt'].format(
             simulator_prompt=old_simulator_prompt,
             chatbot_prompt=old_chatbot_prompt,
-            conversation=conversation_block
+            conversation_feedback=feedback_block
         )
-        result = await self.prompt_optimizer_agent.run(
-            prompt=formatted_prompt,
-        )
+        result = await self.prompt_optimizer_agent.run(formatted_prompt)
         chatbot_prompt = result.data.new_chatbot_prompt
         simulator_prompt = result.data.new_simulator_prompt
-        convo_feedback = result.data.convo_feedback
 
         input_doc_summary = app_state.get("summary", "")
         reasoning_prompt = await self.create_reasoning_prompt(
@@ -304,21 +398,21 @@ class ChatbotCreator():
             old_simulator_prompt=old_simulator_prompt,
             old_chatbot_prompt=old_chatbot_prompt,
             old_reasoning_prompt=old_reasoning_prompt,
-            convo_feedback=convo_feedback
+            convo_feedback=feedback_list
         )
         # update working prompt files each time
-        self.update_prompt_files(simulator_prompt, chatbot_prompt)
+        self.update_prompt_files(
+            simulator_prompt,
+            chatbot_prompt,
+            reasoning_prompt
+        )
+        # Update app_state with new prompts
+        app_state["sim_prompt"] = simulator_prompt
+        app_state["chat_prompt"] = chatbot_prompt
+        app_state["reasoning_prompt"] = reasoning_prompt
+    
         logger.info("✅ Prompts optimized")
-        logger.info(f"📝 Feedback count: {len(convo_feedback)}")
+        logger.info(f"📝 Feedback count: {len(feedback_text_list)}")
 
-        return chatbot_prompt, simulator_prompt, convo_feedback
-
-    async def chatbot_creation(self) -> None:
-        """Main entry point to create a chatbot."""
-        logging.info("Creating chatbot...")
-        summary = await self.summarize_input_doc()
-        simulator_prompt, chatbot_prompt = await self.create_prompt(summary)
-        chatbot_prompt, simulator_prompt, _, _ = await self.optimize_prompt(simulator_prompt, chatbot_prompt)
-        logger.info(f"🤖 Chatbot created with the following prompt: {chatbot_prompt}")
-        return None
+        return chatbot_prompt, simulator_prompt
 

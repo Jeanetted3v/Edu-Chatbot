@@ -19,15 +19,34 @@ def load_config():
 
 
 state = {
+    "mode": "",
     "summary": "",
+    "prompt_creation_complete": False,
     "sim_prompt": "",
     "chat_prompt": "",
+    "reasoning_prompt": "",
     "conversations": [],
     "current_conv_index": 0,
     "feedback_history": [],
-    "model_name": "gpt-4o-mini",  # Default model name
+    "model_name": "gpt-4.1-mini",  # Default model name
     "regeneration_count": 0
 }
+
+# Example structure for the feedback history:
+# app_state["feedback_history"] = [
+#     {
+#         "conversation_index": 0,  # Index of the conversation in the conversations array 1 to 10 examples for each iteration
+#         "conversation": [         # The actual conversation turns
+#             {
+#                 "customer_inquiry": "How can I reset my password?",
+#                 "bot_response": "To reset your password, please go to the login page and click..."
+#             },
+#             # More turns...
+#         ],
+#         "feedback": "The bot response was helpful but could be more concise..."  # User feedback
+#     },
+#     # More feedback entries for other conversations...
+# ]
 
 
 def get(key, default=None):

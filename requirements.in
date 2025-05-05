@@ -38,4 +38,4 @@ dspy
 numpy<2.0
 torch
 sentence-transformers
-gradio
+gradio==5.29.0
