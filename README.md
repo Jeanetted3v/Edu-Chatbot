@@ -6,6 +6,10 @@
 
 Edu Chatbot is a customer service chatbot application, created for education enrichment businesses to auto-reply to customer inquiries. It manages customer inquiries across multiple channels including websites, WhatsApp, WeChat, Telegram, and more.
 
+## Updates (7May2025):
+* Main app is ready. In the process of Switching to RestfulAPI to interface with frontend.
+* In the process of building separate app for meta prompt. 
+
 ## Overview & Key Features
 Edu Chatbot combines AI technologies with human oversight to ensure customer satisfaction and improve sales conversion:
 * **<span style="color:#4285F4">🤖 Intelligent Interaction</span>**: Leverages on Retrieval-Augmented Generation (RAG) to respond to complex customer inquiries, customization according to business needs.
@@ -38,7 +42,7 @@ Edu Chatbot combines AI technologies with human oversight to ensure customer sat
 ## Demo
 Check out Edu Chatbot in action: [YouTube](https://youtu.be/nDMpLLQesEk)
 
-The diagram below illustrates the complete interaction flow demonstrated in the video:
+To help you understand what's happening in the demo video, here is a diagram to illustrate the complete interaction flow.
 ```mermaid
 flowchart TD
   Start([Demo Start]) --> A
@@ -220,120 +224,6 @@ Edu_chatbot/
 ├── requirements.in
 └── requirements.txt
 ```
-
-### Mermard Diagram (Visual Overview)
-```mermaid
-graph TD
-    A[Edu_chatbot] --> C[config]
-    A --> D[data]
-    A --> F[src]
-    
-    D --> D1[data_to_ingest]
-    D --> D2[embeddings]
-    
-    F --> F1[backend]
-    F --> F2[frontend]
-    
-    F1 --> F1A[api]
-    F1 --> F1B[chat]
-    F1 --> F1C[database]
-    F1 --> F1D[dataloaders]
-    F1 --> F1E[dataprocessor]
-    F1 --> F1F[main]
-    F1 --> F1G[models]
-    F1 --> F1H[utils]
-    F1 --> F1I[websocket]
-    F1 --> F1J[evaluation]
-    
-    F2 --> F2A[src]
-    F2A --> F2A1[app]
-    F2A1 --> F2A1A[components]
-    F2A1 --> F2A1B[services]
-    F2A1 --> F2A1C[page.tsx]
-```
-
-### Collapsible sections (With Explanation)
-
-<details>
-  <summary><strong>Edu_chatbot (Root)</strong></summary>
-  
-  - `.dockerignore` - Docker build exclusion patterns
-  - `.env` - Environment variables
-  - `.gitignore` - Git exclusion patterns
-  - `docker-compose.yml` - Docker Compose configuration
-  - `README.md` - Project documentation
-  - `requirements.in` - Primary Python dependencies
-  - `requirements.txt` - Pinned Python dependencies
-  
-  <details>
-    <summary><strong>assets/</strong></summary>
-    
-  - Project assets (images, static files, etc.)
-  </details>
-  
-  <details>
-    <summary><strong>config/</strong></summary>
-    
-  - Configuration files
-  </details>
-  
-  <details>
-    <summary><strong>data/</strong></summary>
-
-  <details>
-    <summary>data_to_ingest/</summary>
-    
-  - Raw data for ingestion
-  </details>
-  
-  <details>
-    <summary>embeddings/</summary>
-    
-  - Vector embeddings storage
-  </details>
-  </details>
-  
-  <details>
-    <summary><strong>dockerfiles/</strong></summary>
-    
-  - Docker configuration files
-  </details>
-  
-  <details>
-    <summary><strong>src/</strong></summary>
-    
-  <details>
-    <summary>backend/</summary>
-    
-  - api/ - API endpoints
-  - chat/ - Chat functionality
-  - database/ - Database connections and models
-  - dataloaders/ - Data loading utilities
-  - dataprocessor/ - Data processing pipelines
-  - evaluation/ - Evaluation pipeline
-  - main/ - Application entry points
-  - models/ - ML/AI models
-  - utils/ - Utility functions
-  - websocket/ - WebSocket handlers
-  </details>
-    
-  <details>
-    <summary>frontend/</summary>
-    
-  <details>
-    <summary>src/</summary>
-    
-  <details>
-    <summary>app/</summary>
-    
-  - components/ - UI components
-  - services/ - Frontend api
-  - page.tsx - Main entry point to frontend components
-  </details>
-  </details>
-  </details>
-  </details>
-</details>
 
 
 ## Tech Stack
