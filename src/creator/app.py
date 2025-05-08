@@ -18,18 +18,40 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 
 from src.backend.utils.logging import setup_logging
 from src.creator.chatbot_creator import ChatbotCreator
-from src.creator.utils import state as app_state
-from src.creator.utils import load_config
+from src.creator.utils.utils import state as app_state
+from src.creator.utils.utils import load_config
+from src.creator.utils.css import css
+
+from src.creator.services.config_service import ConfigService
+from src.creator.services.doc_service import DocumentService
+from src.creator.services.prompt_creation_service import PromptCreationService
+from src.creator.services.prompt_optimization_service import PromptOptimizationService
+from src.creator.services.simulation_service import SimulationService
 
 
 cfg = load_config()
 logger = logging.getLogger(__name__)
 setup_logging()
 
+
+config_service = ConfigService(cfg)
+simulation_service = SimulationService(config_service)
+doc_service = DocumentService(config_service, simulation_service)
+prompt_creation_service = PromptCreationService(config_service)
+prompt_optimization_service = PromptOptimizationService(
+    config_service,
+    prompt_creation_service
+)
+simulation_service = SimulationService(config_service)
+
+# creator = ChatbotCreator(cfg)
 # Initialize state
-creator = ChatbotCreator(cfg)
 if "mode" not in app_state:
     app_state["mode"] = cfg.creator.mode
+
+# Initialize "regeneration_count" if it doesn't exist
+if "regeneration_count" not in app_state:
+    app_state["regeneration_count"] = 0
 
 
 # Utility wrapper for async
@@ -68,11 +90,14 @@ def upload_file(file):
     return f"✅ File '{filename}' saved to {target}"
 
 
-def set_model(model_name):
-    cfg.creator.input_doc_agent.model_name = model_name
-    app_state["model_name"] = model_name
-    logger.info(f"Model set to: {model_name}")
-    return f"Model set to: {model_name}"
+def set_model(resoning_model, response_model) -> str:
+    """Update model across all services"""
+    config_service.update_model(resoning_model, response_model)
+    app_state["reasoning_model"] = resoning_model
+    app_state["response_model"] = response_model
+    logger.info(f"Updated models to Reasoning: {resoning_model} "
+                f"and Response: {response_model}")
+    return f"Models set to: {resoning_model} and {response_model}"
 
 
 def summarize_and_proceed(file):
@@ -83,7 +108,8 @@ def summarize_and_proceed(file):
             gr.update(visible=True)
         )
     try:
-        summary = run_async(creator.summarize_input_doc())
+        summary = run_async(doc_service.summarize_document())
+        logger.info(f"Document summarized successfully: {summary[: 200]}")
         app_state["summary"] = summary
         # In optimize mode, check if we need to load prompts
         if cfg.creator.mode == "optimize":
@@ -109,10 +135,10 @@ def load_existing_prompts():
                 gr.update(visible=False)
             )
         
-        sim_prompt, chat_prompt, reasoning_prompt = run_async(creator.create_prompt())
-        app_state["sim_prompt"] = sim_prompt
-        app_state["chat_prompt"] = chat_prompt
-        app_state["reasoning_prompt"] = reasoning_prompt
+        prompts = config_service.get_current_prompts()
+        app_state["sim_prompt"] = prompts["simulator"]
+        app_state["chat_prompt"] = prompts["chatbot"]
+        app_state["reasoning_prompt"] = prompts["reasoning"]
         return (
             "✅ Loaded existing prompts. Ready to proceed.",
             gr.update(visible=True)
@@ -135,23 +161,60 @@ def handle_chat_message(message, history):
     
     try:
         assistant_response, updated_history, is_complete, sim_prompt, chat_prompt = run_async(
-            creator.create_prompt(message, history)
+            prompt_creation_service.create_prompt(
+                message=message,
+                input_doc_summary=app_state.get("summary", ""),
+                history=[(h[0], h[1]) for h in history] if history else []
+            )
         )
+        logger.info(f"Assistant response: {assistant_response}")
+        logger.info(f"Updated history: {updated_history}")
+        logger.info(f"Is complete: {is_complete}")
+        logger.info(f"Simulator prompt: {sim_prompt}")
+        logger.info(f"Chatbot prompt: {chat_prompt}")
+
+        history_for_display = []
+        if history:
+            history_for_display = list(history)  # Copy existing history
+        
+        # Add new exchange as a list, not a tuple
+        history_for_display.append([message, assistant_response])
+        
+        logger.info(f"Final history for UI: {history_for_display}")
+        
         if is_complete:
-            # Update app_state
             app_state["prompt_creation_complete"] = True
+            app_state["sim_prompt"] = sim_prompt
+            app_state["chat_prompt"] = chat_prompt
             
+            reasoning_prompt = run_async(
+                prompt_creation_service.create_reasoning_prompt(
+                    chatbot_prompt=chat_prompt,
+                    input_doc_summary=app_state.get("summary", "")
+                )
+            )
+            app_state["reasoning_prompt"] = reasoning_prompt
+
             return (
-                "", 
-                updated_history, 
-                sim_prompt or app_state.get("sim_prompt", ""), 
-                chat_prompt or app_state.get("chat_prompt", ""), 
+                "",
+                history_for_display,
+                sim_prompt,
+                chat_prompt,
                 gr.update(visible=True),
                 "✅ Prompts created successfully!"
             )
         # If not complete, just update chat
-        return "", updated_history, "", "", gr.update(visible=False), ""
-        
+        logger.info(f"Updated history: {updated_history}")
+        logger.info(f"Returned history structure: {type(updated_history)}, length: {len(updated_history)}")
+        logger.info(f"First message: {updated_history[0] if updated_history else 'None'}")
+        return (
+            "",  # clear input box
+            history_for_display,
+            "",  # No simulator prompt to show
+            "",  # No chatbot prompt to show
+            gr.update(visible=False),
+            ""  # No status message
+        )        
     except Exception as e:
         logger.error(f"Error in chat: {e}")
         return "", history, "", "", gr.update(visible=False), f"❌ Error: {str(e)}"
@@ -186,9 +249,26 @@ def generate_simulations():
         app_state["conversations"] = []
         app_state["current_conv_index"] = 0
         app_state["feedback_history"] = []
+
+        if not app_state.get("sim_prompt") or not app_state.get("chat_prompt"):
+            return (
+                "⚠️ No prompts available. Please create prompts first.",
+                gr.update(visible=False)
+            )
+        # Get current prompts
+        current_prompts = {
+            "simulator": app_state["sim_prompt"],
+            "chatbot": app_state["chat_prompt"],
+            "reasoning": app_state.get("reasoning_prompt", "")
+        }
         
-        # Generate conversations using the dedicated backend function
-        conversations = run_async(creator.generate_simulations())
+        # Generate conversations using the simulator
+        conversations = run_async(
+            simulation_service.generate_simulations(
+                prompts=current_prompts,
+                num_simulations=10  # or get from config
+            )
+        )
         app_state["conversations"] = conversations
 
         if not app_state["conversations"]:
@@ -312,22 +392,46 @@ def regenerate_prompts():
                 "⚠️ Please provide feedback for all conversations first.",
                 1
             )
-        # Use the feedback to optimize prompts, which include simulation
-        chat_prompt, sim_prompt = run_async(
-            creator.optimize_prompts()
+        # Get current prompts
+        current_prompts = {
+            "simulator": app_state.get("sim_prompt", ""),
+            "chatbot": app_state.get("chat_prompt", ""),
+            "reasoning": app_state.get("reasoning_prompt", "")
+        }
+        
+        # Use the feedback to optimize prompts
+        chat_prompt, sim_prompt, reasoning_prompt, _ = run_async(
+            prompt_optimization_service.optimize_prompts(
+                input_doc_summary=app_state.get("summary", ""),
+                feedback_history=app_state.get("feedback_history", []),
+                current_prompts=current_prompts
+            )
         )
+        
+        # Update app_state with new prompts
         app_state["chat_prompt"] = chat_prompt
         app_state["sim_prompt"] = sim_prompt
+        app_state["reasoning_prompt"] = reasoning_prompt
         
         # Reset for new feedback round
         app_state["conversations"] = []
         app_state["current_conv_index"] = 0
         app_state["feedback_history"] = []
-
-        # Generate new simulations with the optimized prompts
-        conversations = run_async(creator.generate_simulations())
-        app_state["conversations"] = conversations
         
+        # Generate new simulations with the optimized prompts
+        new_prompts = {
+            "simulator": sim_prompt,
+            "chatbot": chat_prompt,
+            "reasoning": reasoning_prompt
+        }
+        conversations = run_async(
+            simulation_service.generate_simulations(
+                prompts=new_prompts,
+                num_simulations=10  # or get from config
+            )
+        )
+        app_state["conversations"] = conversations
+        app_state["current_conv_index"] = 0  # Reset index
         if not app_state["conversations"]:
             return (
                 "⚠️ No conversations were generated during optimization.",
@@ -345,12 +449,12 @@ def regenerate_prompts():
 def deploy_prompts():
     try:
         # Save final prompts
-        creator.update_prompt_files(
-            app_state["sim_prompt"],
-            app_state["chat_prompt"],
-            app_state["reasoning_prompt"]
+        config_service.update_prompts(
+            simulator_prompt=app_state["sim_prompt"],
+            chatbot_prompt=app_state["chat_prompt"],
+            reasoning_prompt=app_state["reasoning_prompt"]
         )
-        return "🚀 Deployment in progress! Your chatbot prompts are being deployed.", 3
+        return "🚀 Deployment in progress! Your chatbot prompts are being deployed.", 5
     except Exception as e:
         logger.error(f"Error deploying prompts: {e}")
         return f"❌ Error deploying prompts: {str(e)}", 1
@@ -367,80 +471,148 @@ def handle_conversation_display_after_regenerate():
 
 
 # ---------Gradio App Setup------------
+combined_css = css + """
+/* Additional custom CSS */
+.my-new-class {
+    font-size: 18px;
+}
+
+/* Styled dividers */
+hr {
+  margin: 24px 0;
+  border: 0;
+  height: 1px;
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0));
+}
+"""
+
 # Main Gradio App
-with gr.Blocks(title="🤖 Interactive Prompt Creator") as demo:
+with gr.Blocks(
+    title="🤖 Interactive Prompt Creator",
+    css=combined_css,
+    theme=gr.themes.Soft(
+        primary_hue="blue",
+        secondary_hue="gray",
+        font=[gr.themes.GoogleFont("Inter"), "system-ui", "sans-serif"]
+    )
+) as demo:
     # Application state (hidden)
     current_screen = gr.State(value=1)
     # Screen 1: Initial Setup with Mode Toggle
-    with gr.Group(visible=True) as screen1:
+    with gr.Group(visible=True, elem_classes=["section"]) as screen1:
         gr.Markdown("# 📁 Step 1: Initial Setup")
         
-        with gr.Row():
-            mode_display = gr.HTML(f"<div><h3>Current Mode: {cfg.creator.mode.upper()}</h3></div>")
+        with gr.Row(elem_classes=["gradio-row"]):
             mode_toggle = gr.Button("🔄 Toggle Mode")
+            mode_display = gr.Textbox(
+                f"Current Mode: {cfg.creator.mode.upper()}", 
+                label="Mode",
+                interactive=False,
+                elem_classes=["status-box"]
+            )
+        gr.Markdown("---")
 
         # Document upload and summarization (needed for both modes)
-        with gr.Group() as doc_upload_group:
-            gr.Markdown("## Upload Files & Select Model")
-            with gr.Row():
+        with gr.Group(elem_classes=["section"]) as doc_upload_group:
+            gr.Markdown("### 📂 Upload Your Document")
+            with gr.Row(elem_classes=["gradio-row"]):
                 file_upload = gr.File(label="Upload Input Documents (txt, pdf, etc.)")
-                upload_msg = gr.Textbox(label="Status", interactive=False)
-            with gr.Row():
-                model_dropdown = gr.Dropdown(
-                    choices=["gpt-4o-mini", "gpt-4.1-mini"],
-                    value=app_state.get("model_name", "gpt-4o-mini"),
-                    label="Select LLM Model"
+            
+            upload_msg = gr.Textbox(
+                label="Status",
+                interactive=False,
+                elem_classes=["status-box"]
+            )
+            with gr.Group(elem_classes=["section"]):
+                gr.Markdown("### 🤖 Select Models")
+                with gr.Row(equal_height=True, elem_classes=["gradio-row"]):
+                    reasoning_model_dropdown = gr.Dropdown(
+                        choices=["gpt-4o-mini", "gpt-4o"],
+                        value=app_state.get("reasoning_model", "gpt-4o-mini"),
+                        label="Reasoning Agent Model"
+                    )
+                    response_model_dropdown = gr.Dropdown(
+                        choices=["gpt-4o-mini", "gpt-4o"],
+                        value=app_state.get("response_model", "gpt-4o-mini"),
+                        label="Response Agent Model"
+                    )
+                
+                model_status = gr.Textbox(
+                    label="Model Status",
+                    interactive=False,
+                    elem_classes=["status-box"]
                 )
-                model_status = gr.Textbox(label="Model Status", interactive=False)
-        
-            with gr.Row():
-                summarize_btn = gr.Button("📝 Summarize & Embed Documents")
-                summary_status = gr.Textbox(label="Summary Status", interactive=False)
-        
+            with gr.Group(elem_classes=["section"]):
+                gr.Markdown("### 📊 Process Documents")
+                with gr.Row(elem_classes=["gradio-row"]):
+                    summarize_btn = gr.Button(
+                        "📝 Summarize & Embed Documents",
+                        elem_classes=["primary"]
+                    )
+                    summary_status = gr.Textbox(
+                        label="Summary Status",
+                        interactive=False,
+                        elem_classes=["status-box"]
+                    )
+            
         # Optimize mode load prompts button
-        with gr.Group(visible=cfg.creator.mode == "optimize") as optimize_group:
-            with gr.Row():
-                load_prompts_btn = gr.Button("🔄 Load Existing Prompts")
-                load_status = gr.Textbox(label="Load Status", interactive=False)
+        with gr.Group(visible=cfg.creator.mode == "optimize", elem_classes=["section"]) as optimize_group:
+            gr.Markdown("### 📝 Load Existing Prompts")
+            with gr.Row(elem_classes=["gradio-row"]):
+                load_prompts_btn = gr.Button(
+                    "🔄 Load Existing Prompts", 
+                    elem_classes=["primary"]
+                )
+                load_status = gr.Textbox(
+                    label="Load Status",
+                    interactive=False,
+                    elem_classes=["status-box"]
+                )
+        gr.Markdown("---")
 
-        with gr.Row():
+        with gr.Row(elem_classes=["gradio-row"]):
             next_btn_text = f"▶️ Next: {'Create Prompts' if cfg.creator.mode == 'create' else 'Review Prompts'}"
-            next_to_screen2 = gr.Button(next_btn_text, visible=False)
+            next_to_screen2 = gr.Button(
+                next_btn_text,
+                visible=False,
+                elem_classes=["success"]
+            )
 
     # Screen 2: Chat Interface for Prompt Creation
-    with gr.Group(visible=False) as screen2:
-        gr.Markdown("# 💬 Step 2: Create & Test Prompts")
-        
-        with gr.Row():
-            gr.Markdown("### Talk with the Meta Prompt Creator to build your chatbot")
-        
-        # Create a manual chat interface instead of using ChatInterface
-        chat_history = gr.Chatbot(height=400, label="Conversation with Meta Prompt Creator")
+    with gr.Group(visible=False, elem_classes=["chatbot-container"]) as screen2:
+        chat_history = gr.Chatbot(
+            height=500,
+            label="Conversation with Meta Prompt Creator",
+            elem_classes=["chat-display"]
+        )
         
         with gr.Row():
             user_input = gr.Textbox(
-                placeholder="Describe what you want your chatbot to do...", 
-                label="Your Message",
-                lines=3
+                placeholder="Talk to the prompt creator...", 
+                label="Your message",
+                show_label=False,
+                lines=2
             )
-            chat_submit_btn = gr.Button("Send")
-        
-        with gr.Row():
-            gr.Markdown("### Examples:")
-            example1_btn = gr.Button("I need a chatbot for customer support")
-            example2_btn = gr.Button("I want a chatbot for IT troubleshooting")
-            example3_btn = gr.Button("I need a sales chatbot")
-        
+            chat_submit_btn = gr.Button(
+                "Send",
+                elem_classes=["primary"]
+            )
+            debug_btn = gr.Button("Test Chat Display", visible=True)
+            
         with gr.Row():
             prompt_status = gr.Textbox(label="Status", interactive=False)
-        
+        gr.Markdown("---")
+
         # Prompt display and editing
         with gr.Row():
             sim_prompt_box = gr.Textbox(label="Simulator Prompt", lines=8)
             chat_prompt_box = gr.Textbox(label="Chatbot Response Prompt", lines=8)
         
         with gr.Row():
-            generate_sims_btn = gr.Button("🔄 Generate Test Conversations")
+            generate_sims_btn = gr.Button(
+                "🤖 Generate Simulated Conversations",
+                elem_classes=["primary"]
+            )
             sim_status = gr.Textbox(label="Simulation Status", interactive=False)
         
         with gr.Row():
@@ -454,7 +626,11 @@ with gr.Blocks(title="🤖 Interactive Prompt Creator") as demo:
             conversation_id = gr.Textbox(label="", interactive=False)
         
         with gr.Row():
-            conversation_display = gr.HTML(label="Conversation")
+            conversation_display = gr.HTML(
+                "",
+                label="Conversation",
+                elem_classes=["conversation-container"]
+            )
         
         with gr.Row():
             feedback_input = gr.Textbox(
@@ -464,7 +640,10 @@ with gr.Blocks(title="🤖 Interactive Prompt Creator") as demo:
             )
         
         with gr.Row():
-            submit_feedback_btn = gr.Button("Submit Feedback")
+            submit_feedback_btn = gr.Button(
+                "📤 Submit Feedback",
+                elem_classes=["primary"]
+            )
             feedback_status = gr.Textbox(label="Status", interactive=False)
         
         with gr.Row():
@@ -478,8 +657,14 @@ with gr.Blocks(title="🤖 Interactive Prompt Creator") as demo:
             decision_status = gr.Textbox(label="Status", interactive=False)
         
         with gr.Row():
-            regenerate_btn = gr.Button("🔄 Regenerate Prompts", visible=False)
-            deploy_btn = gr.Button("🚀 Deploy Prompts", visible=False)
+            regenerate_btn = gr.Button(
+                "🔄 Regenerate Prompts",
+                elem_classes=["primary"]
+            )
+            deploy_btn = gr.Button(
+                "🚀 Deploy Prompts", 
+                elem_classes=["success"]
+            )
     
     # Screen 5: Deployment
     with gr.Group(visible=False) as screen5:
@@ -506,10 +691,19 @@ with gr.Blocks(title="🤖 Interactive Prompt Creator") as demo:
     
     # Screen 1 Events: File upload and model selection
     file_upload.change(upload_file, inputs=file_upload, outputs=upload_msg)
-    model_dropdown.change(set_model, inputs=model_dropdown, outputs=model_status)
+    reasoning_model_dropdown.change(
+        set_model,
+        inputs=[reasoning_model_dropdown, response_model_dropdown], 
+        outputs=[model_status]
+    )
+    response_model_dropdown.change(
+        set_model,
+        inputs=[reasoning_model_dropdown, response_model_dropdown],
+        outputs=[model_status]
+    )
     summarize_btn.click(
-        summarize_and_proceed, 
-        inputs=[file_upload], 
+        summarize_and_proceed,
+        inputs=[file_upload],
         outputs=[summary_status, next_to_screen2]
     )
 
@@ -519,8 +713,8 @@ with gr.Blocks(title="🤖 Interactive Prompt Creator") as demo:
         outputs=[load_status, next_to_screen2]
     )
     next_to_screen2.click(
-        lambda: (2, gr.update(visible=False), gr.update(visible=True)),
-        outputs=[current_screen, screen1, screen2]
+        lambda: 2,
+        outputs=[current_screen]
     )
     
     # Screen 2 Events: Create prompts, then generate simulations
@@ -535,8 +729,8 @@ with gr.Blocks(title="🤖 Interactive Prompt Creator") as demo:
         outputs=[sim_status, next_to_screen3]
     )
     next_to_screen3.click(
-        lambda: (3, gr.update(visible=False), gr.update(visible=True), *prepare_conversation_for_display()),
-        outputs=[current_screen, screen2, screen3, conversation_display, feedback_input, feedback_status, conversation_id, next_conversation_btn]
+        lambda: 3,
+        outputs=[current_screen]
     )
     
     # Screen 3 Events: Go through conversations and submit feedback
@@ -552,46 +746,67 @@ with gr.Blocks(title="🤖 Interactive Prompt Creator") as demo:
     # Add a separate check button (hidden) that's triggered programmatically
     check_transition = gr.Button(visible=False, elem_id="check_transition")
     check_transition.click(
-        lambda: (4, gr.update(visible=False), gr.update(visible=True), *process_all_feedback()) 
-        if app_state["current_conv_index"] >= len(app_state["conversations"])
-        else (None, None, None, None, None, None),
-        outputs=[current_screen, screen3, screen4, decision_status, regenerate_btn, deploy_btn]
+        lambda: 4 if app_state["current_conv_index"] >= len(app_state["conversations"]) else None,
+        outputs=[current_screen]
     )
     
     # Screen 4 Events: Regenerate or Deploy
-    # Fix: Use separate event handlers instead of chaining .then()
     regenerate_btn.click(
         regenerate_prompts,
         outputs=[decision_status, current_screen]
     )
-    # Add transition event handler
-    current_screen.change(
-        handle_screen_transition_after_regenerate,
-        inputs=[current_screen],
-        outputs=[screen4, screen3]
-    )
-    # Handle refreshing the conversation display when returning to screen 3
-    current_screen.change(
-        lambda x: handle_conversation_display_after_regenerate() if x == 3 else (None, None, None, None, None),
-        inputs=[current_screen],
-        outputs=[conversation_display, feedback_input, feedback_status, conversation_id, next_conversation_btn]
-    )
-    
     # Deploy button handling
     deploy_btn.click(
         deploy_prompts,
         outputs=[deployment_status, current_screen]
     )
-    # Handle transition to deployment screen
+
+    # Screen transition handlers based on current_screen value
     current_screen.change(
-        lambda x: (gr.update(visible=False), gr.update(visible=True)) if x == 5 else (None, None),
+        lambda x: gr.update(visible=x == 1),
         inputs=[current_screen],
-        outputs=[screen4, screen5]
+        outputs=[screen1]
+    )
+    current_screen.change(
+        lambda x: gr.update(visible=x == 2),
+        inputs=[current_screen],
+        outputs=[screen2]
+    )
+    current_screen.change(
+        lambda x: gr.update(visible=x == 3),
+        inputs=[current_screen],
+        outputs=[screen3]
+    )
+    current_screen.change(
+        lambda x: gr.update(visible=x == 4),
+        inputs=[current_screen],
+        outputs=[screen4]
+    )
+    current_screen.change(
+        lambda x: gr.update(visible=x == 5),
+        inputs=[current_screen],
+        outputs=[screen5]
     )
 
-# Initialize "regeneration_count" if it doesn't exist
-if "regeneration_count" not in app_state:
-    app_state["regeneration_count"] = 0
+    # Test button handler
+    debug_btn.click(
+        lambda: [["Test message", "This is a test response that should appear in the chat."]], 
+        outputs=[chat_history]
+    )
+
+    # Handle specific transitions that need additional actions
+    current_screen.change(
+        lambda x: process_all_feedback() if x == 4 else (None, None, None),
+        inputs=[current_screen],
+        outputs=[decision_status, regenerate_btn, deploy_btn]
+    )
+
+    current_screen.change(
+        lambda x: prepare_conversation_for_display(0) if x == 3 else (None, None, None, None, None),
+        inputs=[current_screen],
+        outputs=[conversation_display, feedback_input, feedback_status, conversation_id, next_conversation_btn]
+    )
+
 
 # Launch the app
 demo.launch()

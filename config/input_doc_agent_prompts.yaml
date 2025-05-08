@@ -28,4 +28,4 @@ input_doc_agent_prompts:
   user_prompt: |
     Please summarize the documents provided using the structure defined above.
     
-    <input_doc>
+    Documents: {input_doc}

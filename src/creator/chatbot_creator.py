@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from pydantic_ai import Agent
 from src.backend.utils.llm_model_factory import LLMModelFactory
 from src.backend.evaluation.simulator_no_db import ChatBotSimulator
-from src.creator.utils import state as app_state
+from src.creator.utils.utils import state as app_state
 
 
 logger = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ class ChatbotCreator():
         formatted_input_doc = self.cfg.input_doc_agent_prompts['user_prompt'].format(input_doc=input_doc)
         logger.info(f"Formatted input doc: {formatted_input_doc}")
         result = await self.input_doc_agent.run(formatted_input_doc)
-        logger.info(f"Result from input doc agent: {result}")
+        logger.info
         parsed = InputDocAgentResult.model_validate(result.data)
         summary_dict = parsed.model_dump()
         summary_str = json.dumps(summary_dict, indent=2, ensure_ascii=False)

@@ -35,16 +35,17 @@ class QueryHandler:
         self.services = services
         self.cfg = services.cfg
         self.mongo_client = services.mongodb_client.client
-        model_config = dict(self.cfg.query_handler.llm)
-        model = LLMModelFactory.create_model(model_config)
-        logger.info(f"LLM model instance created: {model}")
+        reason_model_config = dict(self.cfg.reasoning)
+        reasoning_model = LLMModelFactory.create_model(reason_model_config)
         self.reasoning_agent = Agent(
-            model=model,
+            model=reasoning_model,
             result_type=ReasongingResult,
             system_prompt=self.cfg.query_handler_prompts.reasoning_agent['sys_prompt']
         )
+        response_model_config = dict(self.cfg.response)
+        response_model = LLMModelFactory.create_model(response_model_config)
         self.response_agent = Agent(
-            model=model,
+            model=response_model,
             result_type=ResponseResult,
             system_prompt=self.cfg.query_handler_prompts.response_agent['sys_prompt']
 

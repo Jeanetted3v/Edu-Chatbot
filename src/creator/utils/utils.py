@@ -7,7 +7,7 @@ from hydra import compose, initialize_config_dir
 
 def load_config():
     current_file_path = Path(__file__).resolve()
-    project_root = current_file_path.parent.parent.parent
+    project_root = current_file_path.parent.parent.parent.parent
     config_dir = project_root / "config"
 
     with initialize_config_dir(
@@ -21,6 +21,7 @@ def load_config():
 state = {
     "mode": "",
     "summary": "",
+    "creator": "",
     "prompt_creation_complete": False,
     "sim_prompt": "",
     "chat_prompt": "",
@@ -28,7 +29,8 @@ state = {
     "conversations": [],
     "current_conv_index": 0,
     "feedback_history": [],
-    "model_name": "gpt-4.1-mini",  # Default model name
+    "reasoning_model": "gpt-4.1-mini",  # Default model name
+    "response_model": "gpt-4.1-mini",  # Default model name
     "regeneration_count": 0
 }
 
