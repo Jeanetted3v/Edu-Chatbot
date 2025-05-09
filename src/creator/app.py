@@ -158,7 +158,7 @@ def handle_chat_message(message, history):
     """Process a chat message and update prompts if complete."""
     if not message:
         return "", history, "", "", gr.update(visible=False), ""
-    
+    history_for_display = history.copy() if history else []
     try:
         assistant_response, updated_history, is_complete, sim_prompt, chat_prompt = run_async(
             prompt_creation_service.create_prompt(
@@ -174,13 +174,13 @@ def handle_chat_message(message, history):
         logger.info(f"Chatbot prompt: {chat_prompt}")
 
         history_for_display = []
-        if history:
-            history_for_display = list(history)  # Copy existing history
+        history_for_display = history.copy() if history else []
         
-        # Add new exchange as a list, not a tuple
-        history_for_display.append([message, assistant_response])
+        # Add new exchange
+        history_for_display.append({"role": "user", "content": message})
+        history_for_display.append({"role": "assistant", "content": assistant_response})
         
-        logger.info(f"Final history for UI: {history_for_display}")
+        logger.info(f"history for display: {history_for_display}")
         
         if is_complete:
             app_state["prompt_creation_complete"] = True
@@ -204,17 +204,14 @@ def handle_chat_message(message, history):
                 "✅ Prompts created successfully!"
             )
         # If not complete, just update chat
-        logger.info(f"Updated history: {updated_history}")
-        logger.info(f"Returned history structure: {type(updated_history)}, length: {len(updated_history)}")
-        logger.info(f"First message: {updated_history[0] if updated_history else 'None'}")
         return (
             "",  # clear input box
-            history_for_display,
+            history_for_display,  # history_for_display,
             "",  # No simulator prompt to show
             "",  # No chatbot prompt to show
-            gr.update(visible=False),
-            ""  # No status message
-        )        
+            gr.update(visible=True),
+            "Test Response"  # No status message
+        )
     except Exception as e:
         logger.error(f"Error in chat: {e}")
         return "", history, "", "", gr.update(visible=False), f"❌ Error: {str(e)}"
@@ -505,7 +502,7 @@ with gr.Blocks(
         with gr.Row(elem_classes=["gradio-row"]):
             mode_toggle = gr.Button("🔄 Toggle Mode")
             mode_display = gr.Textbox(
-                f"Current Mode: {cfg.creator.mode.upper()}", 
+                f"Current Mode: {cfg.creator.mode.upper()}",
                 label="Mode",
                 interactive=False,
                 elem_classes=["status-box"]
@@ -579,28 +576,28 @@ with gr.Blocks(
             )
 
     # Screen 2: Chat Interface for Prompt Creation
-    with gr.Group(visible=False, elem_classes=["chatbot-container"]) as screen2:
+    with gr.Group() as screen2:
+        gr.Markdown("## 💬 Conversation")
         chat_history = gr.Chatbot(
-            height=500,
             label="Conversation with Meta Prompt Creator",
-            elem_classes=["chat-display"]
+            type='messages'
         )
         
         with gr.Row():
             user_input = gr.Textbox(
-                placeholder="Talk to the prompt creator...", 
+                placeholder="Talk to the prompt creator...",
                 label="Your message",
                 show_label=False,
                 lines=2
             )
             chat_submit_btn = gr.Button(
                 "Send",
-                elem_classes=["primary"]
+                # elem_classes=["primary"]
             )
-            debug_btn = gr.Button("Test Chat Display", visible=True)
             
         with gr.Row():
             prompt_status = gr.Textbox(label="Status", interactive=False)
+
         gr.Markdown("---")
 
         # Prompt display and editing
@@ -721,7 +718,7 @@ with gr.Blocks(
     chat_submit_btn.click(
         handle_chat_message,
         inputs=[user_input, chat_history],
-        outputs=[user_input, chat_history, sim_prompt_box, chat_prompt_box, 
+        outputs=[user_input, chat_history, sim_prompt_box, chat_prompt_box,
                  next_to_screen3, prompt_status]
     )
     generate_sims_btn.click(
