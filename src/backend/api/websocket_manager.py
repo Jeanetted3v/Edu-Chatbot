@@ -43,7 +43,6 @@ class ConnectionManager:
         if session_id in self.active_connections:
             closed_connections = []
             for client_id, websocket in self.active_connections[session_id].items():
-                pass
                 try:
                     if websocket.client_state == WebSocketState.CONNECTED:
                         await websocket.send_json(message)

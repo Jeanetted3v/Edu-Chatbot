@@ -1,7 +1,8 @@
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
-
+# Set environment
+ENV NODE_ENV=production
 # Copy package files
 COPY src/frontend/package*.json ./
 
@@ -19,7 +20,9 @@ RUN npm run build
 
 # Production stage
 # Starts a new stage named "runner" using the same base image. Multi-stage builds help create smaller production images.
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
+# Set environment
+ENV NODE_ENV=production
 
 # Set working directory
 WORKDIR /app
@@ -37,7 +40,11 @@ COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
 # next.config.js file contains runtime configuration that Next.js needs when running in production
 COPY --from=build /app/next.config.js ./
-
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+# Switch to non-root user
+USER nextjs
 # Expose port
 EXPOSE 3000
 

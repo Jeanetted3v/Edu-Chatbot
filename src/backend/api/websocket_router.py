@@ -310,7 +310,6 @@ async def handle_command(
 async def websocket_endpoint(
     websocket: WebSocket, 
     session_id: str,
-    customer_id: str,
     client_type: str, 
     services: ServiceContainer = Depends(get_websocket_service_container)
 ):
@@ -343,33 +342,29 @@ async def websocket_endpoint(
             communication.
     """
     try:
+        logger.info(f"WebSocket connection attempt - session: {session_id}, client: {client_type}")
         await websocket.accept()
         await manager.connect(websocket, session_id, client_type)
+        # Get customer_id from query parameters
+        query_params = dict(websocket.query_params)
+        customer_id = query_params.get("customer_id", "")
+        logger.info(f"Customer ID: {customer_id}")
         await services.get_or_create_session(session_id, customer_id)
         chat_history = await services.get_chat_history(session_id, customer_id)
         recent_messages = await chat_history.get_recent_turns(20)
+        logger.info(f"Recent messages: {recent_messages}")
 
-        # Filter messages to ensure they belong to this session
-        filtered_messages = [
-            msg for msg in recent_messages 
-            if msg.get("session_id") == session_id
-        ]
-        
-        # Preparing chat history in a format that frontend can easily use
-        formatted_messages = [
-            {
-            "role": msg.get("role", "unknown"),
-            "content": msg.get("content", ""),
-            "timestamp": (
-                msg.get("timestamp").isoformat() 
-                if msg.get("timestamp") 
-                else ""
-            ),
-            "customer_id": msg.get("customer_id", ""),
-            "session_id": msg.get("session_id", "")
-            }
-            for msg in filtered_messages
-        ]
+        # Format messages for the websocket response without session filtering
+        formatted_messages = []
+        for msg in recent_messages:
+            formatted_messages.append({
+                "role": msg.get("role", "SYSTEM"),
+                "content": msg.get("content", ""),
+                "timestamp": msg.get("timestamp", datetime.now()).isoformat(),
+                "customer_id": msg.get("customer_id", customer_id),
+                "session_id": msg.get("session_id", session_id)  # Keep track of which session the message was from
+            })
+        logger.info(f"Formatted messages: {formatted_messages}")
         
         # Send the initial chat history to the newly connected client
         await websocket.send_json({

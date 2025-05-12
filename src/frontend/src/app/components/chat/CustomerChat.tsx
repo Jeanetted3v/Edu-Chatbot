@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ApiService, ChatMessage } from '../../services/api';
+import { ApiService, ChatMessage, getWebSocketUrl } from '../../services/api';
 import MessageInput from './MessageInput';
 
 interface CustomerChatProps {
@@ -41,24 +41,24 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
   // Sets up the component and defines state variables that will hold all the data needed for the chat to work.
   // Load initial chat history
   useEffect(() => {
-    setMessages([]);
-    setLoading(true);
-
+    // Add a flag to track if we've received history
+    let historyReceived = false;
     setMessages([{
       id: Date.now().toString(),
       content: 'Welcome to our support chat! How can we help you today?',
       sender: 'bot',
       timestamp: new Date()
     }]);
-
+    setLoading(true);
+    setError('');
     // Create a timeout fallback in case WebSocket history is delayed or fails
-    const historyTimeout = setTimeout(() => {
-      // If we're still loading, fall back to HTTP
-      if (loading) {
-        console.log('WebSocket history not received, falling back to HTTP');
-        fetchHistoryViaHTTP();
-      }
-    }, 3000); // 3 second timeout
+    // const historyTimeout = setTimeout(() => {
+    //   // If we're still loading, fall back to HTTP
+    //   if (loading && !historyReceived) {
+    //     console.log('WebSocket history not received, falling back to HTTP');
+    //     fetchHistoryViaHTTP();
+    //   }
+    // }, 5000); // 3 second timeout
 
     // Define the HTTP fallback function
     const fetchHistoryViaHTTP = async () => {
@@ -66,20 +66,27 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
         console.log('Fetching chat history via HTTP fallback');
         const history = await ApiService.getChatHistory(sessionId, customerId);
         
+        if (!history || history.length === 0) {
+          console.log('No history found via HTTP');
+          setLoading(false);
+          return; // Keep welcome message if no history
+        }
+        
+        console.log('Received history via HTTP:', history.length, 'messages');
         // Map backend messages to UI format
-        const uiMessages = history.map((msg: ChatMessage) => ({
-          id: `${msg.timestamp}-${Math.random()}`,
-          content: msg.content,
-          sender: mapRoleToSender(msg.role),
-          timestamp: new Date(msg.timestamp)
-        }));
+        const uiMessages = history
+          .map((msg: ChatMessage) => ({
+            id: `${msg.timestamp}-${Math.random()}`,
+            content: msg.content,
+            sender: mapRoleToSender(msg.role),
+            timestamp: new Date(msg.timestamp)
+          }));
         uiMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
         
         if (uiMessages.length > 0) {
           setMessages(uiMessages);
         }
         // If no messages, keep the welcome message we set earlier
-        
         setLoading(false);
       } catch (err) {
         console.error('Error loading chat history via HTTP:', err);
@@ -87,22 +94,24 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
         setLoading(false);
       }
     };
-    // Clean up the timeout on unmount
-    return () => clearTimeout(historyTimeout);
-  }, [customerId, sessionId, loading]);
+    // Clean up on unmount
+    return () => {
+      // clearTimeout(historyTimeout);
+      historyReceived = true; // Prevent further history loads
+    };
+  }, [customerId, sessionId]);
 
 
   // Set up WebSocket connection
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || !customerId) return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//localhost:8000/ws/chat/${sessionId}/customer`;
+    const wsUrl = getWebSocketUrl(`/ws/chat/${sessionId}/customer?customer_id=${customerId}`);
+    console.log('Attempting to connect to WebSocket:', wsUrl);
     const newSocket = new WebSocket(wsUrl);
-    setLoading(true);
 
     newSocket.onopen = () => {
-      console.log('WebSocket connected');
+      console.log('WebSocket connected successfully!');
       // Get history through the 'history' message type
     };
     // When we receive WebSocket messages
@@ -111,7 +120,6 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
       console.log('WebSocket message received:', data);
       
       if (data.type === 'new_message') {
-        console.log('Processing new message:', data.message);
         // For user messages, only display if they weren't sent by this client
         if (data.message.role === 'user' && data.message.customer_id === customerId) {
           console.log('Ignoring own message echo from server');
@@ -155,13 +163,13 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
       } else if (data.type === 'history') {
         setLoading(false);
         // Handle full history update if needed
-        // Convert server messages to our UI format
-        const historyMessages = data.messages.map((msg: ApiMessage) => ({
-          id: `${msg.timestamp}-${Math.random()}`,
-          content: msg.content,
-          sender: mapRoleToSender(msg.role),
-          timestamp: new Date(msg.timestamp)
-        }));
+        const historyMessages = data.messages
+          .map((msg: ApiMessage) => ({
+            id: `${msg.timestamp}-${Math.random()}`,
+            content: msg.content,
+            sender: mapRoleToSender(msg.role),
+            timestamp: new Date(msg.timestamp)
+          }));
         
         // Sort messages by time
         historyMessages.sort((a: UIMessage, b: UIMessage) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -195,7 +203,7 @@ export default function CustomerChat({ customerId, sessionId }: CustomerChatProp
         newSocket.close();
       }
     };
-  }, [sessionId, loading, customerId]);
+  }, [sessionId, customerId]);
 
   // Helper to map backend roles to UI sender types
   const mapRoleToSender = (role: string): 'user' | 'bot' | 'staff' | 'system' => {

@@ -23,19 +23,21 @@ tiktoken
 pypdf
 openpyxl
 rank-bm25
-bm25s 
-pystemmer
-jax[cpu]
 nltk
 motor
 vaderSentiment
 ragas
-deepeval==2.7.0
+deepeval==2.8.8
 pytest
 langchain-groq
 crawl4ai
+pillow==10.4.0
 dspy
 numpy<2.0
 torch
 sentence-transformers
 gradio==5.29.0
+twilio
+# bm25s 
+# pystemmer
+# jax[cpu]

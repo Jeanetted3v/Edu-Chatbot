@@ -26,11 +26,11 @@ llm:
 
 reasoning:
   provider: azure_async  # openai, openai_async, azure, azure_async, google-gla, anthropic
-  model_name: gpt-4.1-mini # gpt-4o, claude-3-5-sonnet-latest, gemini-2.0-flash, etc
+  model_name: gpt-4o-mini # gpt-4o, claude-3-5-sonnet-latest, gemini-2.0-flash, etc
   api_version: 2024-09-01-preview # for AzureOpenAI
 response: 
   provider: azure_async  # openai, openai_async, azure, azure_async, google-gla, anthropic
-  model_name: gpt-4.1-mini # gpt-4o, claude-3-5-sonnet-latest, gemini-2.0-flash, etc
+  model_name: gpt-4o-mini # gpt-4o, claude-3-5-sonnet-latest, gemini-2.0-flash, etc
   api_version: 2024-09-01-preview  # for AzureOpenAI
   # or just llm model names: https://ai.pydantic.dev/api/models/base/#pydantic_ai.models.KnownModelName 
 query_handler:  

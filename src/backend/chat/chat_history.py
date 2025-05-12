@@ -111,23 +111,16 @@ class ChatHistory:
         try:
             # Try with customer_id and session_id first
             cursor = self.collection.find({
-                'customer_id': self.customer_id,
-                'session_id': self.session_id
+                'customer_id': self.customer_id
             }).sort('timestamp', DESCENDING).limit(limit)
             
             turns = await cursor.to_list(length=limit)
-            
-            # If no results with both filters, try with just customer_id
-            if not turns:
-                cursor = self.collection.find({
-                    'customer_id': self.customer_id
-                }).sort('timestamp', DESCENDING).limit(limit)
-                turns = await cursor.to_list(length=limit)
+            logger.info(f"Retrieved {len(turns)} messages for customer {self.customer_id}")
             
             # If still no results, fall back to no filters (for backward compatibility)
-            if not turns:
-                cursor = self.collection.find({}).sort('timestamp', DESCENDING).limit(limit)
-                turns = await cursor.to_list(length=limit)
+            # if not turns:
+            #     cursor = self.collection.find({}).sort('timestamp', DESCENDING).limit(limit)
+            #     turns = await cursor.to_list(length=limit)
             return turns
             
         except Exception as e:

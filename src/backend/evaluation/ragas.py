@@ -4,17 +4,19 @@ import json
 import csv
 import logging
 from datetime import datetime
-from ragas.metrics import (
-    FactualCorrectness,
-    Faithfulness,
-    LLMContextRecall,
-    AspectCritic
-)
+from src.backend.utils.settings import SETTINGS
+from src.backend.chat.service_container import ServiceContainer
+
+# Import RAGAS components
 from ragas import evaluate
-from ragas.llms import LangchainLLMWrapper
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from ragas.dataset_schema import MultiTurnSample, EvaluationDataset
-from ragas.messages import HumanMessage, AIMessage
+from ragas.metrics import (
+    faithfulness,
+    answer_relevancy,
+    context_relevancy,
+    context_recall
+)
+from ragas.llms import OpenAI as RagasOpenAI
+from datasets import Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -22,23 +24,15 @@ logger = logging.getLogger(__name__)
 class RagasEvaluator:
     """RAGAS evaluator for your chatbot system."""
     
-    def __init__(self, chat_history_collection=None):
+    def __init__(self, services: ServiceContainer = None):
         """Initialize the evaluator."""
-        self.chat_history_collection = chat_history_collection
-        self.ragas_llm = LangchainLLMWrapper(ChatOpenAI(model="gpt-4o-mini"))
-        self.embeddings = OpenAIEmbeddings()
-        self.single_turn_metrics = [LLMContextRecall()]
-        self.multi_turn_metrics = [
-            AspectCritic(
-                name="task_completion",
-                definition="Return 1 if the AI completes all Human requests fully without any rerequests; otherwise, return 0.",
-                llm=self.ragas_llm,
-            ),
-            AspectCritic(
-                name="factual_correctness",
-                definition="is the response correct compared to reference",
-                llm=self.ragas_llm,
-            )
+        self.services = services
+        self.ragas_llm = RagasOpenAI(api_key=SETTINGS.OPENAI_API_KEY)
+        self.metrics = [
+            faithfulness(llm=self.ragas_llm),
+            answer_relevancy(llm=self.ragas_llm),
+            context_relevancy(llm=self.ragas_llm),
+            context_recall(llm=self.ragas_llm)
         ]
 
     async def extract_conversations_by_session(
@@ -57,59 +51,69 @@ class RagasEvaluator:
         ).sort("timestamp", 1).limit(limit)
         all_msg = await msg_cursor.to_list(length=limit)
         return all_msg
-    
-    def extract_context_from_metadata(
-        self, messages: List[Dict]
-    ) -> Dict[str, List[Dict]]:
-        context_by_session = {}
-        for msg in messages:
-            session_id = msg.get("session_id")
-            metadata = msg.get("metadata", {})
-            if session_id not in context_by_session:
-                context_by_session["session_id"] = []
-            if metadata:
-                if "top_search_result" in metadata:
-                    if isinstance(metadata["top_search_result"], str):
-                        context_by_session[session_id].append(
-                            metadata["top_search_result"]
-                        )
-                    elif isinstance(metadata["top_search_result"], dict) and \
-                            "content" in metadata["top_search_result"]:
-                        context_by_session[session_id].append(
-                            metadata["top_search_result"]["content"]
-                        )
-                if "intent" in metadata:
-                    context_by_session[session_id].append(
-                        f"Intent: {metadata['intent']}"
-                    )
-        logger.info(f"Context_by_session: {context_by_session}")
-        return context_by_session
 
-    def prepare_multi_turn_samples(
-        self, messages: List[Dict]
-    ) -> List[MultiTurnSample]:
-        """Convert messages to RAGAS MultiTurnSample format"""
-        messages.sort(key=lambda x: x.get("timestamp", 0))
+    def prepare_conversation_pairs(self, messages: List[Dict]) -> List[Dict]:
+        conversation_pairs = []
+        current_question = None
 
-        convo = []
-        user_input = []
-        for msg in messages:
-            role = msg.get("role", "").lower()
-            content = msg.get("content", "")
-            if role == "user":
-                user_msg = HumanMessage(content=content)
-                convo.append(user_msg)
-                user_input.append(user_msg)
-            elif role == "bot":
-                convo.append(AIMessage(content=content))
-        # contexts = self.extract_context_from_metadata(messages)
+        for i, msg in messages:
+            role = msg.get("role")
+            content = msg.get("content")
+
+            if role in ["USER", "user"]:
+                current_question = content
+            elif role in ["BOT"] and current_question and i > 0:
+                metadata = msg.get("metadata", {})
+                # This is a response to the current question
+                conversation_pairs.append({
+                    "question": current_question,
+                    "answer": content,
+                    "metadata": metadata,
+                    "timestamp": msg.get("timestamp"),
+                    "session_id": msg.get("session_id"),
+                    "customer_id": msg.get("customer_id")
+                })
+                current_question = None
+        return conversation_pairs
     
-        if convo:
-            logger.info(f"User input: {user_input}")
-            sample = MultiTurnSample(
-                user_input=user_input,
-                conversation=convo,  # Full conversation
-                # contexts=contexts or ["No context available"]
+    def extract_context_from_metadata(self, conversation_pairs: List[Dict]) -> List[Dict]:
+        for pair in conversation_pairs:
+            contexts = []
+            metadata = pair.get("metadata", {})
+            
+            # Extract contexts from various potential metadata fields
+            if metadata.get("full_analysis", False):
+                # If this includes sentiment analysis results
+                contexts.append(f"Sentiment analysis: Score {metadata.get('sentiment_score', 'N/A')}, Confidence: {metadata.get('sentiment_confidence', 'N/A')}")
+            
+            # Look for course data or search results in your metadata
+            if "courses_json" in metadata:
+                contexts.append(metadata["courses_json"])
+            
+            if "search_results" in metadata:
+                contexts.append(metadata["search_results"])
+            
+            # If no contexts could be extracted, use a placeholder
+            if not contexts:
+                contexts = ["No context metadata available"]
+            
+            pair["contexts"] = contexts
+        
+        return conversation_pairs
+
+    def prepare_eval_dataset(self, conversation_pairs: List[Dict]) -> Dataset:
+        data = {
+            "question": [],
+            "answer": [],
+            "contexts": [],
+            "session_id": [],
+            "timestamp": []
+        }
+        for pair in conversation_pairs:
+            data["question"].append(pair["question"])
+            data["answer"].append(pair["answer"])
+            data["contexts"].append(
+                pair.get("contexts", ["No context available"])
             )
             logger.info(f"MultiTurnSample: {sample}")
             return [sample]

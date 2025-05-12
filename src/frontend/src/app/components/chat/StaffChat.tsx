@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ApiService, ChatMessage, ChatSession } from '../../services/api';
+import { ApiService, ChatMessage, ChatSession, getWebSocketUrl } from '../../services/api';
 import MessageInput from './MessageInput';
 import { Button } from '../ui/button';
 import { User, Bot, RefreshCw } from 'lucide-react';
@@ -45,7 +45,7 @@ export default function StaffChat({ selectedSession, activeSessions }: StaffChat
   const loadChatHistory = async () => {
     try {
       setLoading(true);
-      console.log('Loading chat history for session:', selectedSession.session_id);
+      console.log('Loading chat history for customer:', selectedSession.customer_id);
       
       const history = await ApiService.getChatHistory(
         selectedSession.session_id, 
@@ -56,11 +56,10 @@ export default function StaffChat({ selectedSession, activeSessions }: StaffChat
       
       const uiMessages = history
         .filter((msg: ChatMessage) => 
-          msg.session_id === selectedSession.session_id && 
           msg.customer_id === selectedSession.customer_id
         )
         .map((msg: ChatMessage) => ({
-          id: `${msg.timestamp}-${msg.role}-${msg.content.substring(0, 20)}`,
+          id: `${msg.timestamp}-${Math.random()}`,
           content: msg.content,
           sender: mapRoleToSender(msg.role),
           timestamp: new Date(msg.timestamp)
@@ -121,9 +120,7 @@ export default function StaffChat({ selectedSession, activeSessions }: StaffChat
       timestamp: new Date()
     }]);
 
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//localhost:8000/ws/chat/${selectedSession.session_id}/staff`;
-    
+    const wsUrl = getWebSocketUrl(`/ws/chat/${selectedSession.session_id}/staff?customer_id=${selectedSession.customer_id}`);
     console.log('Attempting to connect WebSocket to:', wsUrl);
     setSocketStatus('connecting');
     
@@ -142,9 +139,8 @@ export default function StaffChat({ selectedSession, activeSessions }: StaffChat
         const data = JSON.parse(event.data);
         
         if (data.type === 'new_message') {
-          // Only check session_id, be more permissive
-          if (data.message.session_id !== selectedSession.session_id) {
-            console.warn('Message filtered out - session mismatch');
+          if (data.message.customer_id !== selectedSession.customer_id) {
+            console.warn('Message filtered out - customer mismatch');
             return;
           }
 
@@ -191,8 +187,7 @@ export default function StaffChat({ selectedSession, activeSessions }: StaffChat
           setLoading(false);
           // Filter history messages for current session
           const filteredHistory = data.messages.filter(
-            (msg: ApiMessage) => 
-              msg.session_id === selectedSession.session_id && 
+            (msg: ApiMessage) =>
               msg.customer_id === selectedSession.customer_id
           );
           console.log('Processing history update from WebSocket:', filteredHistory.length, 'messages');
@@ -200,7 +195,7 @@ export default function StaffChat({ selectedSession, activeSessions }: StaffChat
           if (filteredHistory.length > 0) {
             // Convert to UI message format
             const historyMessages = filteredHistory.map((msg: ApiMessage) => ({
-              id: `${msg.timestamp}-${msg.role}-${msg.content.substring(0, 20)}`,
+              id: `${msg.timestamp}-${Math.random()}`,
               content: msg.content,
               sender: mapRoleToSender(msg.role),
               timestamp: new Date(msg.timestamp)
@@ -235,8 +230,8 @@ export default function StaffChat({ selectedSession, activeSessions }: StaffChat
       }
     };
     
-    newSocket.onerror = (error) => {
-      console.error('Staff WebSocket error:', error);
+    newSocket.onerror = () => {
+      console.warn('Staff WebSocket connection failed:');
       setSocketStatus('disconnected');
     };
     

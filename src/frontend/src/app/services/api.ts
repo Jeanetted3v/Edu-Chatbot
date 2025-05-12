@@ -53,6 +53,12 @@ export interface TransferRequest {
 
 // Base API URL - adjust as needed
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const getWebSocketUrl = (path: string) => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  // Use the API_URL but replace http:// with ws:// or https:// with wss://
+  const wsBase = API_URL.replace(/^http/, 'ws');
+  return `${wsBase}${path}`;
+};
 
 // API Service class
 export class ApiService {
@@ -82,8 +88,13 @@ export class ApiService {
     }
   }
 
-  static async getChatHistory(sessionId: string, customerId: string, limit: number = 50): Promise<any> {
+  static async getChatHistory(
+    sessionId: string,
+    customerId: string,
+    limit: number = 50
+  ): Promise<any> {
     try {
+      console.log(`Getting full history for customer: ${customerId}`);
       const response = await fetch(
         `${API_URL}/utils/chat/history?session_id=${sessionId}&customer_id=${customerId}&limit=${limit}`,
         {
@@ -97,8 +108,8 @@ export class ApiService {
       if (!response.ok) {
         throw new Error(`Error: ${response.status}`);
       }
-      
-      return await response.json();
+      const data = await response.json();
+      return data
     } catch (error) {
       console.error('Error getting chat history:', error);
       throw error;
