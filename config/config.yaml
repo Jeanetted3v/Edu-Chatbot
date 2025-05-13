@@ -96,11 +96,4 @@ defaults:
   - query_handler_prompts
   - simulator_prompts
   - llm_gt_prompts
-  - creator
-  - input_doc_agent_prompts
-  - prompt_creator_prompts
-  - reasoning_agent_template
-  - reasoning_creator_prompts
-  - prompt_validator_prompts 
-  - prompt_optimizer_prompts 
 
