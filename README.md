@@ -223,11 +223,14 @@ Edu_chatbot/
 **<span style="color:#9C27B0">🔠 ChromaDB</span>**: Vector database for semantic search  
 **<span style="color:#FF9800">💾 MongoDB</span>**: Chat history storage and data persistence  
 **<span style="color:#3F51B5">📁 GoogleDriveAPI</span>**: Remote data access and integration  
-**<span style="color:#00BCD4">⚡ FastAPI</span>**: Backend API framework  
-**<span style="color:#795548">⚛️ NodeJS/React</span>**: Frontend interface  
+**<span style="color:#00BCD4">⚡ FastAPI</span>**: Backend API framework, HTTP and Websocket. Websocket is for real-time communications, catering for this use case. 
+**<span style="color:#795548">⚛️ NodeJS/React</span>**: Used for building the frontend interface for chat interaction, and user dashboard
+**<span style="color:#9E9E9E">📚 BM25</span>**: Traditional keyword-based retriever for efficient sparse search
+**<span style="color:#607D8B">🔍 CrossEncoder</span>**: Reranker used after initial retrieval to improve response relevance
 **<span style="color:#607D8B">🐳 Docker</span>**: Containerization and deployment  
 **<span style="color:#E91E63">📊 RAGAS</span>**: RAG evaluation framework for measuring relevancy, faithfulness, correctness  
-**<span style="color:#E91E63">📊 DeepEval</span>**: DeepEval evaluation framework for measuring conversational metrics, such as role adherence, knowledge retention, conversation completeness, conversation relevancy
+**<span style="color:#F48FB1">📊 DeepEval</span>**: Evaluation framework for measuring conversational metrics such as role adherence, knowledge retention, conversation completeness, and relevancy
+
 
 
 ## Reference
