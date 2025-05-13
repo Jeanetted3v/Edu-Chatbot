@@ -19,7 +19,6 @@ google-auth
 google-auth-oauthlib 
 google-auth-httplib2
 google-api-python-client
-tiktoken
 pypdf
 openpyxl
 rank-bm25
@@ -32,12 +31,13 @@ pytest
 langchain-groq
 crawl4ai
 pillow==10.4.0
-dspy
+
 numpy<2.0
 torch
 sentence-transformers
 gradio==5.29.0
-twilio
+# twilio
 # bm25s 
 # pystemmer
 # jax[cpu]
+# dspy
