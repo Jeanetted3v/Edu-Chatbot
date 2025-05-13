@@ -6,15 +6,15 @@
 
 Edu Chatbot is a customer service chatbot application, created for education enrichment businesses to auto-reply to customer inquiries. It manages customer inquiries across multiple channels including websites, WhatsApp, WeChat, Telegram, and more.
 
-## Updates (7May2025):
-* Main app is ready. In the process of Switching to RestfulAPI to interface with frontend.
-* In the process of building separate app for meta prompt. 
+## Updates (13May2025):
+* Main application "Edu Chatbot" is ready! Follow the Setup Guide to play with it. 
+* Currently in the process of building a separate applicaiton for chatbot creator, which is designed to create a chatbot dynamically with user's instructions. 
 
 ## Overview & Key Features
 Edu Chatbot combines AI technologies with human oversight to ensure customer satisfaction and improve sales conversion:
 * **<span style="color:#4285F4">🤖 Intelligent Interaction</span>**: Leverages on Retrieval-Augmented Generation (RAG) to respond to complex customer inquiries, customization according to business needs.
 
-* **<span style="color:#4285F4">📚 Knowledge Base</span>**: Stores and indexes frequently asked questions (FAQs), course details, pricing information, and other business-critical data in a vector database for rapid, accurate retrieval.
+* **<span style="color:#4285F4">📚 Knowledge Base</span>**: Stores and indexes frequently asked questions (FAQs), course details, pricing information, information crawled from company website and other business-critical data in a vector database for rapid, accurate retrieval.
 
 * **<span style="color:#4285F4">🎯 Personalized Recommendations</span>**: Gathers relevant student information such as age and interests to recommend the relevant course.
 
@@ -22,7 +22,7 @@ Edu Chatbot combines AI technologies with human oversight to ensure customer sat
 
 * **<span style="color:#4285F4">😊 Sentiment Analysis</span>**: Detects customer satisfaction levels and able to escalate to human staff when reaching a pre-configured threshold.
 
-* **<span style="color:#4285F4">🧩 Custom Conversation Simulator</span>**: Takes on parent role, generating realistic queries and follow-up questions. Creates customizable datasets with varying personas and complexity for pre-deployment testing.
+* **<span style="color:#4285F4">🧩 Custom Conversation Simulator</span>**: Takes on parent role, generating realistic queries and follow-up questions. Creates customizable datasets with varying personas and complexity for pre-deployment testing and CI/CD monitoring during production phase.
 
 * **<span style="color:#4285F4">📊 Comprehensive Evaluation</span>**: A spectrum of evaluation metrics for single-turn and multi-turn conversations.
 
@@ -42,45 +42,13 @@ Edu Chatbot combines AI technologies with human oversight to ensure customer sat
 ## Demo
 Check out Edu Chatbot in action: [YouTube](https://youtu.be/nDMpLLQesEk)
 
-To help you understand what's happening in the demo video, here is a diagram to illustrate the complete interaction flow.
-```mermaid
-flowchart TD
-  Start([Demo Start]) --> A
-  A["Customer: Inquiries about courses"] --> B
-  B["Chatbot: Intent Classification & Information Gathering"]
-  
-  B --> C1["Chatbot: Asks customer about age of student"]
-  C1 --> C2["Customer: Provides age"]
-  B --> C3["Chatbot: Asks customer about interest of student"]
-  C3 --> C4["Customer: Shares interests"]
-  
-  C2 --> D["Chatbot: Course Recommendation with details - Description, Teacher info, Pricing, Schedule"]
-  C4 --> D
-  
-  D --> E["Customer: Expresses concern about price and requests discount"]
-  E --> E2["Chatbot: Not authorized to offer discounts"]
-  
-  E2 --> F["Support Staff: Notices situation and clicks the Take Over button"]
-  F --> F2["Staff: Offers special discount"]
-  
-  F2 --> G["Customer: Accepts discounted offer"]
-  G --> G1["Staff: Toggles back to chatbot"]
-  G1 --> G2["Chatbot: Proceeds with enrollment"]
-  G2 --> End([Enrollment Complete])
-  
-  classDef customer fill:#f9d5e5,stroke:#333,color:#000
-  classDef chatbot fill:#e0f0ff,stroke:#333,color:#000
-  classDef staff fill:#d5f9e5,stroke:#333,color:#000
-  classDef endpoint fill:#f5f5f5,stroke:#333,color:#000
-  
-  class A,C2,C4,E,G customer
-  class B,C1,C3,D,E2,G2 chatbot
-  class F,F2,G1 staff
-  class Start,End endpoint
+To help you understand what's happening in the demo video, below is a write-up to illustrate the complete interaction flow:
+```text
+The flow begins when a customer inquires about courses through a chatbot. The chatbot classifies the intent and gathers key information such as the student's age and interests. Based on the inputs, it recommends suitable courses along with details like descriptions, teacher profiles, pricing, and schedules. When the customer expresses concern about the price and requests a discount, the chatbot informs them it isn't authorized to offer one. A support staff monitoring the conversation then intervenes by clicking a "Take Over" button and offers a special discount. The customer accepts, and the staff hands the conversation back to the chatbot, which proceeds with enrollment, completing the interaction smoothly.
 ```
 
 
-## Setup
+## Setup Guide
 
 ### Prerequisites
 * Python version 3.12+
@@ -97,17 +65,11 @@ cd edu-chatbot
 cp .env.example .env
 # Edit .env file with your API keys and configurations
 ```
-3. Start the application using Docker Compose
-```bash
-docker compose up --build
-```
-4. Access the application
-* Open in a web browser to interact with the [User Interface with "dual interface"](http://localhost:3000) (port 8000)
-* Or interact directly with the [Backend](http://localhost:8000/chat/docs) (port 3000)
 
 ### Data Configuration - Local
 * Place your unstructured FAQ documents (PDF) and structured data Excel files in the /data/data_to_ingest folder
 * In config/data_ingest.yaml, configure the paths under "local_docs" according to the file names and excel sheet names
+* Currently only support text information.
 ```yaml
 local_doc:
   paths:
@@ -145,6 +107,22 @@ gdrive_doc:
   * For Google Docs: https://docs.google.com/document/d/FILE_ID_HERE/edit
   * For Drive files: https://drive.google.com/file/d/FILE_ID_HERE/view
 
+### Other configurable parameters
+* Other configurable parameters such as LLM model, retreiver settings, prompts can be found in yaml files in the config/folder. 
+* Main entry point for configurable parameters for the chatbot is at config/config.yaml
+* Main entry point for configurable parametes for the data ingestion pipeline is at config/data_ingest.yaml
+* Users feel free to change them or just use the current default settings. 
+
+### Running the app
+1. Start the application using Docker Compose
+```bash
+docker compose up --build
+```
+2. Access the application
+* Open in a web browser to interact with the [chatbot (dual interface)](http://localhost:3000) (port 3000).
+* Or if you are familiar with SwaggerUI inference, feel free to interact directly with the [Backend](http://localhost:8000/chat/docs) (port 8000).
+
+
 
 ## Technical Implementation Details
 **<span style="color:#4285F4">📏 RAG or Long Context?</span>**
@@ -156,16 +134,21 @@ gdrive_doc:
 - This can be configured in config/data_ingest.yaml
 
 **<span style="color:#F4B400">✂️ Chunking</span>**
-- Langchain is used for chunking for the RAG pipeline.
-- Currently support RecursiveCharacter and SemanticChunker, configurable in config/data_ingest.yaml
+- Various chunking strategies are configurable in the config/data_ingest.yaml file. 
+- Currently Langchain is used for RecursiveCharacter and SemanticChunker chunking stratgies for the RAG pipeline.
 
-**<span style="color:#DB4437">🔍 Embedding & Vector Database</span>**
+**<span style="color:#DB4437">🔍 Embedding, Vector Database & Retrieval</span>**
 - Implements ChromaDB for lightweight, high-performance vector storage.
+- Utilizes BM25 for efficient full-text keyword search, enabling robust lexical matching alongside semantic retrieval.
+- Applies CrossEncoder as a reranker to refine and boost relevance of retrieved results through deeper contextual scoring.
 
-**<span style="color:#9C27B0">🤖 Agentic RAG</span>**
+**<span style="color:#9C27B0">🤖 Modular Agentic RAG</span>**
 - PydanticAI is used here for its simplicity and data valiadation feature.
-- It is able to provide a more direct output, such as during intent classification process. 
+- Also implemented PydanticAI logfire for LLM tracing.
+- Able to provide a more deterministic structured output, such as during intent classification process. 
 - For other LLM functions, plain vanilla OpenAI API is used for simplicity and flexibility. 
+- Incorporates a separate **Reasoning Agent** to elaborate on incoming query, assess whether the intent needs to be split into multiple intent and thus retrieval, and determine if RAG is required.
+* A **Response Agent** then synthesizes incoming query, chat history, and any retrieved documents to generate the final customer response. This modular approach optimizes latency, reduces unnecessary retrieval calls, and improves the relevance and coherence of responses.
 
 **<span style="color:#FF9800">💾 Saved Chat History</span>**
 - All chat histories are saved in MongoDB, which allows for tracing, further analysis and prompt enhancements.
@@ -176,20 +159,23 @@ gdrive_doc:
 - Evaluation results are logged for continuous improvement of the system.
 
 
-## Future Enhancements
-**Multi-Channel Integration**
+## Ideas for Future Enhancements
+1. **Multi-Channel Integration**
 - Implement direct integration with WhatsApp, WeChat, Telegram, and other messaging platforms
 - Develop a unified API layer for consistent experience across all communication channels
 - Enable channel-specific customizations while maintaining core functionality
 
-**Vector Database**
+2. **Vector Database**
 - To support more types of vector database
 
-**Enhanced Evaluation**
+3. **MultiModal data**
+- To support MultiModal data RAG
+
+4. **Enhanced Evaluation**
 - To add customized evaluation metrics
 
+
 ## Project Structure
-### ASCII Directory Tree (Complete Structure)
 ```text
 Edu_chatbot/
 ├── assets/
@@ -227,7 +213,6 @@ Edu_chatbot/
 
 
 ## Tech Stack
-
 **<span style="color:#4285F4">🧠 OpenAI</span>**: LLM provider for natural language understanding and generation  
 **<span style="color:#0F9D58">🔍 PydanticAI</span>**: Agentic framework for data validation and structured outputs   
 **<span style="color:#F4B400">⛓️ Langchain</span>**: Document processing and chunking  
@@ -238,8 +223,12 @@ Edu_chatbot/
 **<span style="color:#00BCD4">⚡ FastAPI</span>**: Backend API framework  
 **<span style="color:#795548">⚛️ NodeJS/React</span>**: Frontend interface  
 **<span style="color:#607D8B">🐳 Docker</span>**: Containerization and deployment  
-**<span style="color:#E91E63">📊 RAGAS</span>**: RAG evaluation framework for measuring relevancy, faithfulness, correctness
+**<span style="color:#E91E63">📊 RAGAS</span>**: RAG evaluation framework for measuring relevancy, faithfulness, correctness  
 **<span style="color:#E91E63">📊 DeepEval</span>**: DeepEval evaluation framework for measuring conversational metrics, such as role adherence, knowledge retention, conversation completeness, conversation relevancy
+
+
+## Reference
+1. [Klarna Chatbot Strategy Shift: Why Companies Are Rebalancing Human and AI Customer Service](https://loris.ai/blog/klarna-chatbot-strategy-shift-why-companies-are-rebalancing-human-and-ai-customer-service/)
 
 
 ## Contributing
