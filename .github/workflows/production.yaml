@@ -13,17 +13,13 @@ env:
 jobs:
   Deploy-Production:
     runs-on: ubuntu-latest
-    environment: chat
-
-    defaults:
-      run: 
-        working-directory: ./
-
+    environment: chat 
     steps:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v3
 
       - name: 🛠️ Install Vercel CLI
+        working-directory: src/frontend
         run: npm install --global vercel@canary
 
       - name: 📦 Install Dependencies
@@ -44,15 +40,26 @@ jobs:
           echo "GOOGLE_CLOUD_PROJECT_ID=${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}" >> $GITHUB_ENV
           echo "WEBSITE=${{ secrets.WEBSITE }}" >> $GITHUB_ENV
 
+      - name: 🔍 Debug Repository Structure
+        run: |
+          echo "Repository root structure:"
+          ls -la
+          echo "Frontend directory structure:"
+          ls -la src/frontend
+          echo "Package.json locations:"
+          find . -name "package.json" | sort
+
       - name: 🧠 Pull Vercel Project Settings
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }} --cwd src/frontend
 
       - name: 🏗️ Build Project
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd src/frontend
 
       - name: 🚀 Deploy to Vercel (Production)
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd src/frontend
 
-      - name: 🧪 Debug working dir
-        run: pwd && ls -al
-
+      - name: 🧪 Debug After Deployment
+        run: |
+          echo "Current working directory: $(pwd)"
+          echo "src/frontend contents:"
+          ls -la src/frontend
