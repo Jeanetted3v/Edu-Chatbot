@@ -23,7 +23,7 @@ jobs:
         run: npm install --global vercel@canary
 
       - name: 📦 Install Dependencies
-        working-directory: ./
+        working-directory: src/frontend
         run: npm install
 
       - name: 📄 Inject Environment Variables
