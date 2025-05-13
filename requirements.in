@@ -31,7 +31,6 @@ pytest
 langchain-groq
 crawl4ai
 pillow==10.4.0
-
 numpy<2.0
 torch
 sentence-transformers
