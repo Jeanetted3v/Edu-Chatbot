@@ -7,7 +7,8 @@
 Edu Chatbot is a customer service chatbot application, created for education enrichment businesses to auto-reply to customer inquiries. It manages customer inquiries across multiple channels including websites, WhatsApp, WeChat, Telegram, and more.
 
 ## Updates (13May2025):
-* Main application "Edu Chatbot" is ready! Follow the Setup Guide to play with it. 
+* Main application "Edu Chatbot" is ready! Pending deployment to Render and Vercel.
+* Follow the Setup Guide to play with it with Docker Compose. 
 * Currently in the process of building a separate applicaiton for chatbot creator, which is designed to create a chatbot dynamically with user's instructions. 
 
 ## Overview & Key Features
