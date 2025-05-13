@@ -61,10 +61,13 @@ git clone https://github.com/Jeanetted3v/edu_chatbot.git
 cd edu-chatbot
 ```
 2. Configure environmental variables
+* Key variables you need: at least 1 LLM api key and a MongoDB URI
+* For the rest, you can put in placeholders such as "api_key" so that the system can still run. 
 ```bash
 cp .env.example .env
 # Edit .env file with your API keys and configurations
 ```
+
 
 ### Data Configuration - Local
 * Place your unstructured FAQ documents (PDF) and structured data Excel files in the /data/data_to_ingest folder
