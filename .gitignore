@@ -24,7 +24,7 @@ data/*
 !data/.gitkeep
 
 
-!.githhub/workflows/production.yaml
+!.github/
 # evaluations
 evaluations/*
 !evaluations/ragas_reports/.gitkeep
