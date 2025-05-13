@@ -42,15 +42,15 @@ jobs:
           echo "WEBSITE=${{ secrets.WEBSITE }}" >> $GITHUB_ENV
 
       - name: 🧠 Pull Vercel Project Settings
-        working-directory: ./
+        working-directory: src/frontend
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: 🏗️ Build Project
-        working-directory: ./
+        working-directory: src/frontend
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: 🚀 Deploy to Vercel (Production)
-        working-directory: ./
+        working-directory: src/frontend
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: 🧪 Debug working dir
