@@ -14,7 +14,7 @@ export default function ChatDemoPage() {
   const [activeSessions, setActiveSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
+ 
   // Initialize the demo 
   useEffect(() => {
     const initDemo = async () => {
