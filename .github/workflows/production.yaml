@@ -52,3 +52,8 @@ jobs:
       - name: 🚀 Deploy to Vercel (Production)
         working-directory: ./
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: 🧪 Debug working dir
+        run: pwd && ls -al
+        working-directory: src/frontend
+
