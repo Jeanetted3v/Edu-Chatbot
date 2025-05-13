@@ -13,7 +13,11 @@ env:
 jobs:
   Deploy-Production:
     runs-on: ubuntu-latest
-    environment: chat  # 🔑 Make sure this matches GitHub Environment name exactly
+    environment: chat
+
+    defaults:
+      run: 
+        working-directory: src/frontend  
 
     steps:
       - name: 📥 Checkout Repository
@@ -23,7 +27,6 @@ jobs:
         run: npm install --global vercel@canary
 
       - name: 📦 Install Dependencies
-        working-directory: src/frontend
         run: npm install
 
       - name: 📄 Inject Environment Variables
@@ -42,18 +45,14 @@ jobs:
           echo "WEBSITE=${{ secrets.WEBSITE }}" >> $GITHUB_ENV
 
       - name: 🧠 Pull Vercel Project Settings
-        working-directory: src/frontend
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: 🏗️ Build Project
-        working-directory: src/frontend
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: 🚀 Deploy to Vercel (Production)
-        working-directory: src/frontend
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: 🧪 Debug working dir
-        working-directory: src/frontend
         run: pwd && ls -al
 
