@@ -23,8 +23,8 @@ venv/
 data/*
 !data/.gitkeep
 
-!.gitignore
 
+!.githhub/workflows/production.yaml
 # evaluations
 evaluations/*
 !evaluations/ragas_reports/.gitkeep

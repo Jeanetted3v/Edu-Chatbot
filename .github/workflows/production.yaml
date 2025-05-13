@@ -1,0 +1,54 @@
+name: GitHub Actions Vercel Production Deployment
+
+on:
+  push:
+    branches:
+      - main  # Only deploy from main
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+jobs:
+  Deploy-Production:
+    runs-on: ubuntu-latest
+    environment: chat  # 🔑 Make sure this matches GitHub Environment name exactly
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: 🛠️ Install Vercel CLI
+        run: npm install --global vercel@canary
+
+      - name: 📦 Install Dependencies
+        working-directory: src/frontend
+        run: npm install
+
+      - name: 📄 Inject Environment Variables
+        run: |
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
+          echo "AZURE_ENDPOINT=${{ secrets.AZURE_ENDPOINT }}" >> $GITHUB_ENV
+          echo "AZURE_API_KEY=${{ secrets.AZURE_API_KEY }}" >> $GITHUB_ENV
+          echo "AZURE_API_VERSION=${{ secrets.AZURE_API_VERSION }}" >> $GITHUB_ENV
+          echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" >> $GITHUB_ENV
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> $GITHUB_ENV
+          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" >> $GITHUB_ENV
+          echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> $GITHUB_ENV
+          echo "GOOGLE_CREDENTIALS_PATH=${{ secrets.GOOGLE_CREDENTIALS_PATH }}" >> $GITHUB_ENV
+          echo "GOOGLE_SPREADSHEET_ID=${{ secrets.GOOGLE_SPREADSHEET_ID }}" >> $GITHUB_ENV
+          echo "GOOGLE_CLOUD_PROJECT_ID=${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "WEBSITE=${{ secrets.WEBSITE }}" >> $GITHUB_ENV
+
+      - name: 🧠 Pull Vercel Project Settings
+        working-directory: src/frontend
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: 🏗️ Build Project
+        working-directory: src/frontend
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: 🚀 Deploy to Vercel (Production)
+        working-directory: src/frontend
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
