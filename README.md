@@ -7,8 +7,8 @@
 Edu Chatbot is a customer service chatbot application, created for education enrichment businesses to auto-reply to customer inquiries. It manages customer inquiries across multiple channels including websites, WhatsApp, WeChat, Telegram, and more.
 
 ## Updates (13May2025):
-* Main application "Edu Chatbot" is ready! Pending deployment to Render and Vercel.
-* Follow the Setup Guide to play with it with Docker Compose. 
+* Main application "Edu Chatbot" is ready! Pending deployment to Render and Vercel and swapping of vector database (from the current ChromaDB to Weaviate)
+* Follow the Setup Guide to interact with it via Docker Compose. 
 * Currently in the process of building a separate applicaiton for chatbot creator, which is designed to create a chatbot dynamically with user's instructions. 
 
 ## Overview & Key Features
@@ -236,6 +236,7 @@ Edu_chatbot/
 
 ## Reference
 1. [Klarna Chatbot Strategy Shift: Why Companies Are Rebalancing Human and AI Customer Service](https://loris.ai/blog/klarna-chatbot-strategy-shift-why-companies-are-rebalancing-human-and-ai-customer-service/)
+2. ["Long RAG" & Practical Guide for Model Selection for Real‑World Use Cases](https://cookbook.openai.com/examples/partners/model_selection_guide/model_selection_guide#3a-use-case-long-context-rag-for-legal-qa)
 
 
 ## Contributing
