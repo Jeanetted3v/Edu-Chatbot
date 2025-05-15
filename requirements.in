@@ -34,7 +34,6 @@ pillow==10.4.0
 numpy<2.0
 torch
 sentence-transformers
-gradio==5.29.0
 weaviate-client
 # twilio
 # bm25s 

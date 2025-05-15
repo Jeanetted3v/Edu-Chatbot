@@ -6,10 +6,15 @@
 
 Edu Chatbot is a customer service chatbot application, created for education enrichment businesses to auto-reply to customer inquiries. It manages customer inquiries across multiple channels including websites, WhatsApp, WeChat, Telegram, and more.
 
-## Updates (13May2025):
-* Main application "Edu Chatbot" is ready! Pending deployment to Render and Vercel and swapping of vector database (from the current ChromaDB to Weaviate)
-* Follow the Setup Guide to interact with it via Docker Compose. 
-* Currently in the process of building a separate applicaiton for chatbot creator, which is designed to create a chatbot dynamically with user's instructions. 
+## Updates (15May2025):
+* Main application "Edu Chatbot" is ready!
+* Follow the Setup Guide below to interact with it via Docker Compose. 
+* ChromaDB as vector database for this version, which is only for running on local machines. 
+* Currently in the process of building a separate applicaiton for chatbot creator, with the following features:
+  1. Designed to create a chatbot dynamically with user's instructions.
+  2. Weaviate as vector database
+  3. Automated deployment to cloud
+
 
 ## Overview & Key Features
 Edu Chatbot combines AI technologies with human oversight to ensure customer satisfaction and improve sales conversion:
@@ -68,7 +73,14 @@ cd edu-chatbot
 cp .env.example .env
 # Edit .env file with your API keys and configurations
 ```
-
+3. (Alternative to Docker) Install Python dependencies
+If you're running locally without Docker:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
 
 ### Data Configuration - Local
 * Place your unstructured FAQ documents (PDF) and structured data Excel files in the /data/data_to_ingest folder
@@ -181,38 +193,45 @@ docker compose up --build
 
 ## Project Structure
 ```text
-Edu_chatbot/
-├── assets/
-├── config/
-├── data/
-│   ├── raw/
-│   └── embeddings/
-├── dockerfiles/
+Edu_chatbot/                    # Root of project
+├── assets/                     # Images and videos used in the README
+├── config/                     # Configurable parameters, prompt templates
+├── data/       
+│   ├── convo/                  # Conversations extracted from MongoDB
+│   ├── crawl/                  # Data scraped from websites (raw and parsed)
+│   ├── data_to_ingest/         # Raw documents uploaded by users
+│   ├── embeddings/             # Chunked and embedded document vectors
+│   ├── eval/                   # Evaluation results (CSV, JSON)
+│   └── simulations/            # Simulated user-chatbot interactions
+├── dockerfiles/                # Dockerfiles for backend and frontend
 ├── src/
 │   ├── backend/
-│   │   ├── api/
-│   │   ├── chat/
-│   │   ├── database/
-│   │   ├── dataloaders/
-│   │   ├── dataprocessor/
-│   │   ├── evaluation/
-│   │   ├── main/
-│   │   ├── models/
-│   │   ├── utils/
-│   │   └── websocket/
-│   └── frontend/
+│   │   ├── api/                # API endpoints and websocket logic
+│   │   ├── chat/               # Chat modules: query handling, sentiment analysis, etc.
+│   │   ├── database/           # Database interface and helper modules
+│   │   ├── dataloaders/        # Loaders for local files and Google Drive
+│   │   ├── dataprocessor/      # Chunking and embedding modules
+│   │   ├── evaluation/         # RAGAS, DeepEval, and simulator components
+│   │   ├── main/               # Entry points to run pipelines without API
+│   │   ├── models/             # Pydantic models and schema definitions
+│   │   └── utils/              # Logging, config, and helper utilities
+│   └── frontend/               # React and Node.js frontend code
 │       └── src/
 │           └── app/
-│               ├── components/
-│               ├── services/
-│               └── page.tsx
-├── .dockerignore
-├── .env
-├── .gitignore
-├── docker-compose.yml
-├── README.md
-├── requirements.in
-└── requirements.txt
+│               ├── components/ # Reusable UI components
+│               ├── services/   # Frontend services (e.g., API calls)
+│               └── page.tsx    # Main app page
+├── .dockerignore               # Files/folders to exclude from Docker builds
+├── .env                        # Environment variables (to be filled before running)
+├── .env.example                # Template for .env file
+├── .gitignore                  # Files/folders to ignore in Git
+├── conftext.py                 # Config file for running DeepEval (pytest)
+├── docker-compose.yml          # Compose file to run services locally
+├── LICENSE                     # License information
+├── README.md                   # Project overview and setup instructions
+├── requirements.in             # Unresolved requirements input for pip-compile
+└── requirements.txt            # Resolved, locked dependencies for pip install
+ 
 ```
 
 
@@ -234,9 +253,13 @@ Edu_chatbot/
 
 
 
-## Reference
-1. [Klarna Chatbot Strategy Shift: Why Companies Are Rebalancing Human and AI Customer Service](https://loris.ai/blog/klarna-chatbot-strategy-shift-why-companies-are-rebalancing-human-and-ai-customer-service/)
-2. ["Long RAG" & Practical Guide for Model Selection for Real‑World Use Cases](https://cookbook.openai.com/examples/partners/model_selection_guide/model_selection_guide#3a-use-case-long-context-rag-for-legal-qa)
+## References & Thoughts
+1. [Klarna Chatbot Strategy Shift: Why Companies Are Rebalancing Human and AI Customer Service:](https://loris.ai/blog/klarna-chatbot-strategy-shift-why-companies-are-rebalancing-human-and-ai-customer-service/) A fintech company explaining their experience and challenges of mass implementation of chatbot in customer service and plans to tackle them. Lessons learnt:
+  * Application-level measurements as well as LLM and RAG-leval evaluations are important.
+  * Use real customer interaction data to identify and address AI shortcomings.
+  * Understanding conversational paths by the specific use case or customer intent can give us a clear playbook for where to apply AI confidently (and maybe tell us how else we can incorporate AI)
+
+2. ["Long RAG" & Practical Guide for Model Selection for Real‑World Use Cases:](https://cookbook.openai.com/examples/partners/model_selection_guide/model_selection_guide#3a-use-case-long-context-rag-for-legal-qa) A RAG technique shared by OpenAI based on long context. Suitable for use case with requirements on high precision and not particular about latency. 
 
 
 ## Contributing
