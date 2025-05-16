@@ -10,7 +10,7 @@ hydra-core
 langchain
 langchain_experimental
 pymongo
-chromadb
+chromadb>=1.0.7
 pydantic
 pydantic-settings
 pydantic-ai==0.0.52
@@ -34,7 +34,6 @@ pillow==10.4.0
 numpy<2.0
 torch
 sentence-transformers
-weaviate-client
 # twilio
 # bm25s 
 # pystemmer

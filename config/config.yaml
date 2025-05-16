@@ -38,7 +38,7 @@ query_handler:
   handle_query_model: "openai:gpt-4.1-mini"  
 
 human_agent:
-  sentiment_threshold: 0.4
+  sentiment_threshold: 0.3
   confidence_threshold: 0.7
 
 msg_analyzer:

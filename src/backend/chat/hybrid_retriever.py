@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
 import json
+import logging
 from pydantic import BaseModel
 import chromadb
 from chromadb.config import Settings
@@ -8,6 +9,9 @@ from rank_bm25 import BM25Okapi
 from sentence_transformers import CrossEncoder
 import torch
 from utils.settings import SETTINGS
+
+
+logger = logging.getLogger(__name__)
 
 
 class SearchMetadata(BaseModel):
@@ -113,6 +117,7 @@ class HybridRetriever:
             where=filter_conditions,
             include=['documents', 'metadatas', 'distances']
         )
+        logger.info(f"Initial Search Results: {results}")
         
         # Accessing the inner lists of results. Chromadb supports batch queries
         documents = results['documents'][0]
@@ -121,6 +126,7 @@ class HybridRetriever:
         semantic_scores = self._normalize_scores(
             [1 - d for d in results['distances'][0]]
         )
+        logger.info(f"Semantic scores: {semantic_scores}")
         
         # Get keyword search scores
         keyword_scores = self._get_keyword_scores(query, documents)
